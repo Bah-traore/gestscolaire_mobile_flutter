@@ -77,6 +77,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
     final total = stats['total_absences'];
     final justified = stats['justified'];
+    final pending = stats['pending'];
     final unjustified = stats['unjustified'];
 
     Color statusColor(String? s) {
@@ -105,33 +106,50 @@ class _ModulesScreenState extends State<ModulesScreen> {
             borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
             border: Border.all(color: AppTheme.borderColor),
           ),
-          child: Row(
+          child: Column(
             children: [
-              Expanded(
-                child: _kpiTile(
-                  context,
-                  label: 'Total',
-                  value: total?.toString() ?? '-',
-                  icon: Icons.event_busy,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _kpiTile(
+                      context,
+                      label: 'Total',
+                      value: total?.toString() ?? '-',
+                      icon: Icons.event_busy,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.md),
+                  Expanded(
+                    child: _kpiTile(
+                      context,
+                      label: 'En attente',
+                      value: pending?.toString() ?? '-',
+                      icon: Icons.hourglass_empty,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: AppTheme.md),
-              Expanded(
-                child: _kpiTile(
-                  context,
-                  label: 'Justifiées',
-                  value: justified?.toString() ?? '-',
-                  icon: Icons.check_circle,
-                ),
-              ),
-              const SizedBox(width: AppTheme.md),
-              Expanded(
-                child: _kpiTile(
-                  context,
-                  label: 'Non justifiées',
-                  value: unjustified?.toString() ?? '-',
-                  icon: Icons.error,
-                ),
+              const SizedBox(height: AppTheme.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: _kpiTile(
+                      context,
+                      label: 'Justifiées',
+                      value: justified?.toString() ?? '-',
+                      icon: Icons.check_circle,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.md),
+                  Expanded(
+                    child: _kpiTile(
+                      context,
+                      label: 'Non justifiées',
+                      value: unjustified?.toString() ?? '-',
+                      icon: Icons.error,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -146,11 +164,11 @@ class _ModulesScreenState extends State<ModulesScreen> {
             contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
+            child: DropdownButton<String?>(
               isExpanded: true,
               value: currentStatus,
               hint: const Text('Toutes'),
-              items: const [
+              items: const <DropdownMenuItem<String?>>[
                 DropdownMenuItem(value: null, child: Text('Toutes')),
                 DropdownMenuItem(value: 'JUSTIFIE', child: Text('Justifiées')),
                 DropdownMenuItem(
@@ -174,10 +192,42 @@ class _ModulesScreenState extends State<ModulesScreen> {
         const SizedBox(height: AppTheme.lg),
 
         if (absences.isEmpty)
-          Center(
-            child: Text(
-              'Aucune absence.',
-              style: Theme.of(context).textTheme.bodyMedium,
+          Container(
+            padding: const EdgeInsets.all(AppTheme.lg),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.sm),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: const Icon(Icons.info_outline, size: 18),
+                ),
+                const SizedBox(width: AppTheme.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Aucune absence',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppTheme.sm),
+                      Text(
+                        'Aucune absence n\'a été enregistrée pour l\'élève sur la période sélectionnée.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           )
         else

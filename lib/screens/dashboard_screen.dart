@@ -457,6 +457,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'homework' => '/homework',
       'bulletins' => '/bulletins',
       'notifications' => '/notifications',
+      'absences' => '/absences',
       'scolarites' => '/scolarites',
       _ => null,
     };
@@ -526,11 +527,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // Grille de fonctionnalités
               _buildFeaturesGrid(context),
-
-              const SizedBox(height: AppTheme.xl),
-
-              // Statistiques rapides
-              _buildQuickStats(context),
 
               const SizedBox(height: AppTheme.xl),
 
@@ -1089,6 +1085,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'description': 'Voir les bulletins',
       },
       {
+        'icon': Icons.event_busy,
+        'title': 'Absences',
+        'description': 'Consulter les absences',
+      },
+      {
         'icon': Icons.payments,
         'title': 'Scolarités',
         'description': 'Voir les paiements',
@@ -1132,6 +1133,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             if (feature['title'] == 'Bulletins') {
               _openModule('bulletins');
+              return;
+            }
+
+            if (feature['title'] == 'Absences') {
+              _openModule('absences');
               return;
             }
 
@@ -1180,77 +1186,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         );
       },
-    );
-  }
-
-  /// Construire les statistiques rapides
-  Widget _buildQuickStats(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Statistiques rapides',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppTheme.lg),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                context,
-                icon: Icons.check_circle,
-                title: 'Présences',
-                value: '95%',
-                color: AppTheme.successColor,
-              ),
-            ),
-            const SizedBox(width: AppTheme.lg),
-            Expanded(
-              child: _buildStatCard(
-                context,
-                icon: Icons.trending_up,
-                title: 'Moyenne',
-                value: '14.5',
-                color: AppTheme.infoColor,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  /// Construire une carte de statistique
-  Widget _buildStatCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppTheme.lg),
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: AppTheme.md),
-          Text(title, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: AppTheme.sm),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -4,8 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// Thème global de l'application
 class AppTheme {
   // Couleurs primaires
-  static const Color primaryColor = Color(0xFF2563EB); // Bleu
-  static const Color secondaryColor = Color(0xFF10B981); // Vert
+  static const Color primaryColor = Color(0xFF14532D); // Vert sombre
+  static const Color secondaryColor = Color(0xFF16A34A); // Vert
   static const Color accentColor = Color(0xFFF59E0B); // Ambre
 
   // Couleurs neutres
@@ -13,7 +13,7 @@ class AppTheme {
   static const Color surfaceColor = Color(0xFFFFFFFF);
   static const Color errorColor = Color(0xFFEF4444);
   static const Color warningColor = Color(0xFFFB923C);
-  static const Color successColor = Color(0xFF10B981);
+  static const Color successColor = Color(0xFF16A34A);
   static const Color infoColor = Color(0xFF3B82F6);
 
   // Couleurs texte
