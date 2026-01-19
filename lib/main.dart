@@ -75,6 +75,8 @@ class MyApp extends StatelessWidget {
               const ModulesScreen(kind: ModuleKind.notifications),
           '/scolarites': (context) =>
               const ModulesScreen(kind: ModuleKind.scolarites),
+          '/absences': (context) =>
+              const ModulesScreen(kind: ModuleKind.absences),
         },
         debugShowCheckedModeBanner: false,
       ),

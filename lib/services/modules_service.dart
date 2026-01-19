@@ -28,10 +28,15 @@ class ModulesService {
   Future<Map<String, dynamic>> fetchBulletins({
     required int eleveId,
     String? annee,
+    int? examenId,
   }) async {
     return _api.get<Map<String, dynamic>>(
       '/parent/bulletins/',
-      queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
+      queryParameters: {
+        'eleve_id': eleveId,
+        if (annee != null) 'annee': annee,
+        if (examenId != null) 'examen_id': examenId,
+      },
     );
   }
 
@@ -51,6 +56,16 @@ class ModulesService {
   }) async {
     return _api.get<Map<String, dynamic>>(
       '/parent/scolarites/',
+      queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
+    );
+  }
+
+  Future<Map<String, dynamic>> fetchAbsences({
+    required int eleveId,
+    String? annee,
+  }) async {
+    return _api.get<Map<String, dynamic>>(
+      '/parent/absences/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }

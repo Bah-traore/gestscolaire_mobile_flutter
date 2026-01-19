@@ -10,6 +10,7 @@ import '../services/establishments_service.dart';
 import '../utils/user_friendly_errors.dart';
 import '../widgets/custom_button.dart';
 import 'package:dio/dio.dart';
+import 'dart:async';
 
 /// Écran du tableau de bord
 class DashboardScreen extends StatefulWidget {
@@ -26,9 +27,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _establishmentsError;
   List<Map<String, dynamic>> _establishments = const [];
 
+  Timer? _establishmentsDebounce;
+  Future<void>? _establishmentsInFlight;
+
   bool _loadingChildren = false;
   String? _childrenError;
   List<Map<String, dynamic>> _children = const [];
+
+  Timer? _childrenDebounce;
+  Future<void>? _childrenInFlight;
+
+  Timer? _yearDebounce;
 
   List<String> _availableYears = const [];
   Map<String, String> _yearLabelToValue = const {};
@@ -43,6 +52,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loadChildren();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _establishmentsDebounce?.cancel();
+    _childrenDebounce?.cancel();
+    _yearDebounce?.cancel();
+    super.dispose();
   }
 
   Widget _buildAcademicYearSection(BuildContext context) {
@@ -106,7 +123,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ? null
                             : (_yearLabelToValue[v] ?? v);
                         parentCtx.setAcademicYear(nextValue);
-                        await _loadChildren();
+                        _yearDebounce?.cancel();
+                        _yearDebounce = Timer(
+                          const Duration(milliseconds: 400),
+                          () {
+                            if (!mounted) return;
+                            _scheduleLoadChildren();
+                          },
+                        );
                       },
                 decoration: const InputDecoration(
                   isDense: true,
@@ -121,149 +145,155 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadEstablishments() async {
+    if (_establishmentsInFlight != null) {
+      return _establishmentsInFlight!;
+    }
+
+    if (_loadingEstablishments && _establishments.isNotEmpty) {
+      return;
+    }
+
     setState(() {
       _loadingEstablishments = true;
       _establishmentsError = null;
     });
 
-    try {
-      final api = context.read<ApiService>();
-      final auth = context.read<AuthProvider>();
-      final service = EstablishmentsService(api);
+    _establishmentsInFlight = () async {
+      try {
+        final api = context.read<ApiService>();
+        final auth = context.read<AuthProvider>();
+        final service = EstablishmentsService(api);
 
-      final identifier =
-          ((auth.currentUser?.email ?? '').toString().trim().isNotEmpty)
-          ? (auth.currentUser?.email ?? '').toString().trim()
-          : (auth.currentUser?.phone ?? '').toString().trim();
-      if (identifier.isEmpty) {
-        throw Exception('Identifiant (email ou téléphone) requis');
-      }
+        final identifier =
+            ((auth.currentUser?.email ?? '').toString().trim().isNotEmpty)
+            ? (auth.currentUser?.email ?? '').toString().trim()
+            : (auth.currentUser?.phone ?? '').toString().trim();
+        if (identifier.isEmpty) {
+          throw Exception('Identifiant (email ou téléphone) requis');
+        }
 
-      final items = await service.discover(identifier: identifier);
-      setState(() {
-        _establishments = items;
-      });
+        final items = await service.discover(identifier: identifier);
+        if (!mounted) return;
+        setState(() {
+          _establishments = items;
+        });
 
-      // Ne pas auto-sélectionner une école : le parent choisit toujours manuellement.
-    } on DioException catch (e) {
-      final status = e.response?.statusCode;
-      if (status == 401) {
-        try {
-          final authService = context.read<AuthService>();
-          final refreshed = await authService.refreshAccessToken();
-          if (refreshed) {
-            final api = context.read<ApiService>();
-            final auth = context.read<AuthProvider>();
-            final service = EstablishmentsService(api);
-
-            final identifier =
-                ((auth.currentUser?.email ?? '').toString().trim().isNotEmpty)
-                ? (auth.currentUser?.email ?? '').toString().trim()
-                : (auth.currentUser?.phone ?? '').toString().trim();
-            if (identifier.isNotEmpty) {
-              final items = await service.discover(identifier: identifier);
-              setState(() {
-                _establishments = items;
-              });
-              return;
-            }
-          }
-        } catch (_) {
-          // ignore and fallthrough
+        // Ne pas auto-sélectionner une école : le parent choisit toujours manuellement.
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status == 401) {
+          setState(() {
+            _establishmentsError =
+                'Votre session a expiré. Veuillez vous reconnecter.';
+          });
+          return;
         }
 
         setState(() {
-          _establishmentsError =
-              'Votre session a expiré. Veuillez vous reconnecter.';
+          _establishmentsError = UserFriendlyErrors.fromDio(e);
         });
-        return;
+      } catch (e) {
+        setState(() {
+          _establishmentsError = UserFriendlyErrors.from(e);
+        });
+      } finally {
+        if (!mounted) return;
+        setState(() {
+          _loadingEstablishments = false;
+        });
       }
+    }();
 
-      setState(() {
-        _establishmentsError = UserFriendlyErrors.fromDio(e);
-      });
-    } catch (e) {
-      setState(() {
-        _establishmentsError = UserFriendlyErrors.from(e);
-      });
+    try {
+      await _establishmentsInFlight;
     } finally {
-      setState(() {
-        _loadingEstablishments = false;
-      });
+      _establishmentsInFlight = null;
     }
   }
 
+  void _scheduleLoadEstablishments() {
+    _establishmentsDebounce?.cancel();
+    _establishmentsDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _loadEstablishments();
+    });
+  }
+
   Future<void> _loadChildren() async {
+    if (_childrenInFlight != null) {
+      return _childrenInFlight!;
+    }
+
+    if (_loadingChildren && _children.isNotEmpty) {
+      return;
+    }
+
     setState(() {
       _loadingChildren = true;
       _childrenError = null;
     });
 
-    try {
-      final ctx = context.read<ParentContextProvider>();
-      final est = ctx.establishment;
-      if (est == null) {
-        setState(() {
-          _children = const [];
-        });
-        return;
-      }
-
-      final api = context.read<ApiService>();
-      final service = ChildrenService(api);
-      final items = await service.fetchChildren(
-        establishmentId: est.subdomain,
-        academicYear: ctx.academicYear,
-      );
-      setState(() {
-        _children = items;
-      });
-    } on DioException catch (e) {
-      final status = e.response?.statusCode;
-      if (status == 401) {
-        try {
-          final authService = context.read<AuthService>();
-          final refreshed = await authService.refreshAccessToken();
-          if (refreshed) {
-            final ctx = context.read<ParentContextProvider>();
-            final est = ctx.establishment;
-            if (est != null) {
-              final api = context.read<ApiService>();
-              final service = ChildrenService(api);
-              final items = await service.fetchChildren(
-                establishmentId: est.subdomain,
-                academicYear: ctx.academicYear,
-              );
-              setState(() {
-                _children = items;
-              });
-              return;
-            }
-          }
-        } catch (_) {
-          // ignore
+    _childrenInFlight = () async {
+      try {
+        final ctx = context.read<ParentContextProvider>();
+        final est = ctx.establishment;
+        if (est == null) {
+          return;
         }
-        setState(() {
-          _childrenError = 'Votre session a expiré. Veuillez vous reconnecter.';
-        });
-        return;
-      }
 
-      setState(() {
-        _childrenError = UserFriendlyErrors.fromDio(e);
-      });
-    } catch (e) {
-      setState(() {
-        _childrenError = UserFriendlyErrors.from(e);
-      });
+        final api = context.read<ApiService>();
+        final service = ChildrenService(api);
+        final items = await service.fetchChildren(
+          establishmentId: est.subdomain,
+          academicYear: ctx.academicYear,
+        );
+        if (!mounted) return;
+        setState(() {
+          _children = items;
+        });
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status == 401) {
+          setState(() {
+            _childrenError =
+                'Votre session a expiré. Veuillez vous reconnecter.';
+          });
+          return;
+        }
+
+        setState(() {
+          _childrenError = UserFriendlyErrors.fromDio(e);
+        });
+      } catch (e) {
+        setState(() {
+          _childrenError = UserFriendlyErrors.from(e);
+        });
+      } finally {
+        if (!mounted) return;
+        setState(() {
+          _loadingChildren = false;
+        });
+      }
+    }();
+
+    try {
+      await _childrenInFlight;
     } finally {
-      setState(() {
-        _loadingChildren = false;
-      });
+      _childrenInFlight = null;
     }
   }
 
+  void _scheduleLoadChildren() {
+    _childrenDebounce?.cancel();
+    _childrenDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _loadChildren();
+    });
+  }
+
   Future<void> _selectEstablishment(Map<String, dynamic> est) async {
+    if (_loadingEstablishments || _loadingChildren) return;
+
     final subdomain = (est['id'] ?? '').toString();
     final name = (est['name'] ?? '').toString();
     if (subdomain.isEmpty) {
@@ -371,10 +401,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       if (!mounted) return;
       setState(() {
-        _children = const [];
         _childrenError = null;
       });
-      await _loadChildren();
+      _scheduleLoadChildren();
     } catch (e) {
       setState(() {
         _establishmentsError = UserFriendlyErrors.from(e);
@@ -387,6 +416,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _selectChild(Map<String, dynamic> child) async {
+    if (_loadingChildren || _loadingEstablishments) return;
+
     final idRaw = child['id'];
     final id = idRaw is int ? idRaw : int.tryParse((idRaw ?? '').toString());
     if (id == null) return;
@@ -474,6 +505,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               // Carte de bienvenue
               _buildWelcomeCard(context),
 
+              const SizedBox(height: AppTheme.md),
+
+              _buildContextHint(context),
+
               const SizedBox(height: AppTheme.lg),
 
               _buildEstablishmentsSection(context),
@@ -546,6 +581,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_loadingEstablishments)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  child: const LinearProgressIndicator(minHeight: 3),
+                ),
+              if (_loadingEstablishments) const SizedBox(height: AppTheme.md),
               Row(
                 children: [
                   Expanded(
@@ -557,15 +598,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   IconButton(
                     onPressed: _loadingEstablishments
                         ? null
-                        : _loadEstablishments,
+                        : _scheduleLoadEstablishments,
                     icon: const Icon(Icons.refresh),
                   ),
                 ],
               ),
               const SizedBox(height: AppTheme.md),
-              if (_loadingEstablishments)
-                const Center(child: CircularProgressIndicator())
-              else if (_establishmentsError != null)
+              if (_establishmentsError != null)
                 Text(
                   _establishmentsError!,
                   style: Theme.of(
@@ -601,7 +640,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final hasLogo = (logo ?? '').trim().isNotEmpty;
 
                       return InkWell(
-                        onTap: () => _selectEstablishment(est),
+                        onTap: _loadingEstablishments || _loadingChildren
+                            ? null
+                            : () => _selectEstablishment(est),
                         borderRadius: BorderRadius.circular(
                           AppTheme.radiusLarge,
                         ),
@@ -756,6 +797,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_loadingChildren)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  child: const LinearProgressIndicator(minHeight: 3),
+                ),
+              if (_loadingChildren) const SizedBox(height: AppTheme.md),
               Row(
                 children: [
                   Expanded(
@@ -771,9 +818,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               const SizedBox(height: AppTheme.md),
-              if (_loadingChildren)
-                const Center(child: CircularProgressIndicator())
-              else if (_childrenError != null)
+              if (_childrenError != null)
                 Text(
                   _childrenError!,
                   style: Theme.of(
@@ -808,7 +853,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       final isSelected = id != null && id == selectedChildId;
 
                       return InkWell(
-                        onTap: () => _selectChild(child),
+                        onTap: _loadingChildren || _loadingEstablishments
+                            ? null
+                            : () => _selectChild(child),
                         borderRadius: BorderRadius.circular(
                           AppTheme.radiusLarge,
                         ),
@@ -917,6 +964,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
         final user = authProvider.currentUser;
+        final firstName = (user?.fullName ?? 'Parent').split(' ').first;
 
         return Container(
           padding: const EdgeInsets.all(AppTheme.lg),
@@ -936,7 +984,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bienvenue!',
+                'Bonjour $firstName',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -944,17 +992,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: AppTheme.sm),
               Text(
-                user?.fullName ?? 'Utilisateur',
+                'Suivi scolaire',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(color: Colors.white),
               ),
               const SizedBox(height: AppTheme.md),
               Text(
-                'Vous êtes connecté en tant que ${user?.userType ?? 'utilisateur'}',
+                'Choisissez une école et un enfant pour accéder aux modules.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildContextHint(BuildContext context) {
+    return Consumer<ParentContextProvider>(
+      builder: (context, ctx, _) {
+        final school = ctx.establishment?.name;
+        final child = ctx.child?.fullName;
+        final year = ctx.academicYear;
+
+        String value;
+        if (school == null) {
+          value = 'Aucune école sélectionnée';
+        } else if (child == null) {
+          value = 'École: $school';
+        } else {
+          value = [
+            'École: $school',
+            if (year != null && year.trim().isNotEmpty) 'Année: $year',
+            'Élève: $child',
+          ].join(' • ');
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(AppTheme.md),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: const [AppTheme.shadowSmall],
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 18,
+                color: AppTheme.primaryColor,
+              ),
+              const SizedBox(width: AppTheme.md),
+              Expanded(
+                child: Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
             ],
           ),

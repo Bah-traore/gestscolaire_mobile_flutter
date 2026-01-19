@@ -9,6 +9,8 @@ class AuthService {
   final ApiService _apiService;
   late SharedPreferences _prefs;
 
+  Future<bool>? _refreshInFlight;
+
   static const String _tokenKey = 'auth_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const String _lastTokenRefreshKey = 'last_token_refresh_ms';
@@ -240,37 +242,43 @@ class AuthService {
 
   /// Rafraîchir l'access token (et mettre à jour le refresh token si renvoyé)
   Future<bool> refreshAccessToken() async {
+    if (_refreshInFlight != null) {
+      return _refreshInFlight!;
+    }
+
     final refresh = refreshToken;
     if (refresh == null || refresh.isEmpty) {
       return false;
     }
 
-    // évite les refresh en boucle
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final last = _prefs.getInt(_lastTokenRefreshKey) ?? 0;
-    if (now - last < 3000) {
-      return false;
-    }
-    await _prefs.setInt(_lastTokenRefreshKey, now);
+    _refreshInFlight = () async {
+      // garde une trace du dernier refresh uniquement à titre indicatif
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _prefs.setInt(_lastTokenRefreshKey, now);
 
-    final response = await _apiService.post<Map<String, dynamic>>(
-      '/auth/refresh/',
-      data: {
-        'refresh_token': refresh,
-      },
-    );
-
-    final access = response['access_token'];
-    final newRefresh = response['refresh_token'];
-    if (access is String && access.isNotEmpty) {
-      await setTokens(
-        accessToken: access,
-        refreshToken: newRefresh is String ? newRefresh : null,
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/auth/refresh/',
+        data: {'refresh_token': refresh},
       );
-      return true;
-    }
 
-    return false;
+      final access = response['access_token'];
+      final newRefresh = response['refresh_token'];
+      if (access is String && access.isNotEmpty) {
+        await setTokens(
+          accessToken: access,
+          refreshToken: newRefresh is String ? newRefresh : null,
+        );
+        return true;
+      }
+
+      return false;
+    }();
+
+    try {
+      return await _refreshInFlight!;
+    } finally {
+      _refreshInFlight = null;
+    }
   }
 
   /// Obtenir l'utilisateur actuel
