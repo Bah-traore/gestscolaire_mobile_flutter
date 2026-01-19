@@ -15,6 +15,7 @@ import '../models/timetable_models.dart';
 import '../utils/user_friendly_errors.dart';
 import 'package:dio/dio.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'dart:async';
 
 enum TimetableViewMode { week, list, agenda }
 
@@ -26,14 +27,18 @@ class TimetableScreen extends StatefulWidget {
 }
 
 class _TimetableScreenState extends State<TimetableScreen> {
+  bool _loading = false;
+  String? _error;
+
+  bool _refreshing = false;
+  Timer? _estDebounce;
+  Timer? _childDebounce;
+
   TimetableViewMode _mode = TimetableViewMode.week;
   DateTime _weekStart = _startOfWeek(DateTime.now());
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-
-  bool _loading = false;
-  String? _error;
 
   TimetableResponse? _data;
   TimetableResponse? _agendaData;
@@ -46,6 +51,25 @@ class _TimetableScreenState extends State<TimetableScreen> {
   static DateTime _startOfWeek(DateTime d) {
     final date = DateTime(d.year, d.month, d.day);
     return date.subtract(Duration(days: date.weekday - DateTime.monday));
+  }
+
+  @override
+  void dispose() {
+    _estDebounce?.cancel();
+    _childDebounce?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleReload() {
+    if (!mounted) return;
+    if (_agendaData != null || _data != null) {
+      setState(() {
+        _refreshing = true;
+        _error = null;
+      });
+    }
+    _loadAgendaMonth(_focusedDay);
+    _load();
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -138,7 +162,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Future<void> _loadAgendaMonth(DateTime focused) async {
     setState(() {
-      _loading = true;
+      _refreshing = _agendaData != null;
+      _loading = _agendaData == null;
       _error = null;
     });
 
@@ -161,24 +186,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
       TimetableResponse resp;
       try {
-        resp = await timetableService.fetchTimetable(
-          tenantId: tenantId,
-          eleveId: eleveId,
-          start: start,
-          end: end,
-          view: 'month',
-        );
-      } on DioException catch (e) {
-        if (e.response?.statusCode == 401) {
-          final refreshed = await authService.refreshAccessToken();
-          if (refreshed) {
-            resp = await timetableService.fetchTimetable(
+        resp = await timetableService
+            .fetchTimetable(
               tenantId: tenantId,
               eleveId: eleveId,
               start: start,
               end: end,
               view: 'month',
-            );
+            )
+            .timeout(const Duration(seconds: 15));
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          final refreshed = await authService.refreshAccessToken();
+          if (refreshed) {
+            resp = await timetableService
+                .fetchTimetable(
+                  tenantId: tenantId,
+                  eleveId: eleveId,
+                  start: start,
+                  end: end,
+                  view: 'month',
+                )
+                .timeout(const Duration(seconds: 15));
           } else {
             await authService.logout();
             if (!mounted) return;
@@ -205,6 +234,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     } finally {
       setState(() {
         _loading = false;
+        _refreshing = false;
       });
     }
   }
