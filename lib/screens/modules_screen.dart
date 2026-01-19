@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
@@ -38,6 +39,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   Map<String, dynamic>? _data;
 
+  bool _refreshing = false;
+
   List<Map<String, dynamic>> _availableEstablishments = const [];
   List<Map<String, dynamic>> _availableChildren = const [];
   bool _loadingSelector = false;
@@ -47,12 +50,31 @@ class _ModulesScreenState extends State<ModulesScreen> {
   int? _selectedBulletinId;
   List<Map<String, dynamic>> _availableBulletinExams = const [];
 
+  Timer? _estDebounce;
+  Timer? _childDebounce;
+
   String _formatDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return '';
     final dt = DateTime.tryParse(iso);
     if (dt == null) return iso;
     final d = DateTime(dt.year, dt.month, dt.day);
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  void _scheduleEstablishmentChange(String? establishmentId) {
+    _estDebounce?.cancel();
+    _estDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _onEstablishmentChanged(establishmentId);
+    });
+  }
+
+  void _scheduleChildChange(int? childId) {
+    _childDebounce?.cancel();
+    _childDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _onChildChanged(childId);
+    });
   }
 
   Widget _buildAbsencesBody(BuildContext context) {
@@ -314,20 +336,22 @@ class _ModulesScreenState extends State<ModulesScreen> {
     if (eleveId == null) return;
 
     setState(() {
-      _loading = true;
+      _refreshing = true;
       _error = null;
     });
 
     try {
       final api = context.read<ApiService>();
-      final resp = await api.get<Map<String, dynamic>>(
-        '/parent/absences/',
-        queryParameters: {
-          'eleve_id': eleveId,
-          if (ctx.academicYear != null) 'annee': ctx.academicYear,
-          ...extra,
-        },
-      );
+      final resp = await api
+          .get<Map<String, dynamic>>(
+            '/parent/absences/',
+            queryParameters: {
+              'eleve_id': eleveId,
+              if (ctx.academicYear != null) 'annee': ctx.academicYear,
+              ...extra,
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
       setState(() {
@@ -341,7 +365,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
     } finally {
       if (!mounted) return;
       setState(() {
-        _loading = false;
+        _refreshing = false;
       });
     }
   }
@@ -820,7 +844,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
       Map<String, dynamic> resp;
       try {
-        resp = await run();
+        resp = await run().timeout(const Duration(seconds: 15));
       } on DioException catch (e) {
         if (e.response?.statusCode == 401) {
           final refreshed = await authService.refreshAccessToken();
@@ -832,7 +856,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
             ).pushNamedAndRemoveUntil('/login', (route) => false);
             return;
           }
-          resp = await run();
+          resp = await run().timeout(const Duration(seconds: 15));
         } else {
           rethrow;
         }
@@ -1291,6 +1315,35 @@ class _ModulesScreenState extends State<ModulesScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _estDebounce?.cancel();
+    _childDebounce?.cancel();
+    super.dispose();
+  }
+
+  InputDecoration _glassDropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.82),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.55)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.55)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        borderSide: BorderSide(color: AppTheme.primaryColor.withOpacity(0.55)),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
   String get _title {
     switch (widget.kind) {
       case ModuleKind.notes:
@@ -1488,11 +1541,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
       children: [
         Expanded(
           child: InputDecorator(
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
+            decoration: _glassDropdownDecoration('École'),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true,
@@ -1508,8 +1557,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
                     .toList(growable: false),
                 onChanged: _loadingSelector || _loading
                     ? null
-                    : (value) async {
-                        await _onEstablishmentChanged(value);
+                    : (value) {
+                        _scheduleEstablishmentChange(value);
                       },
               ),
             ),
@@ -1518,11 +1567,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
         const SizedBox(width: AppTheme.md),
         Expanded(
           child: InputDecorator(
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
+            decoration: _glassDropdownDecoration('Élève'),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 isExpanded: true,
@@ -1542,8 +1587,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
                     .toList(growable: false),
                 onChanged: _loadingSelector || _loading
                     ? null
-                    : (value) async {
-                        await _onChildChanged(value);
+                    : (value) {
+                        _scheduleChildChange(value);
                       },
               ),
             ),
@@ -1555,7 +1600,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      _refreshing = _data != null;
+      _loading = _data == null;
       _error = null;
     });
 
@@ -1698,7 +1744,7 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   Widget _buildBody(BuildContext context) {
     if (_loading) {
-      return const Center(child: LoadingWidget());
+      return const LoadingWidget();
     }
 
     if (_error != null) {
@@ -1707,91 +1753,32 @@ class _ModulesScreenState extends State<ModulesScreen> {
       );
     }
 
+    Widget body;
     if (widget.kind == ModuleKind.notes) {
-      return _buildNotesBody(context);
+      body = _buildNotesBody(context);
+    } else if (widget.kind == ModuleKind.homework) {
+      body = _buildHomeworkBody(context);
+    } else if (widget.kind == ModuleKind.bulletins) {
+      body = _buildBulletinsBody(context);
+    } else if (widget.kind == ModuleKind.scolarites) {
+      body = _buildScolaritesBody(context);
+    } else if (widget.kind == ModuleKind.absences) {
+      body = _buildAbsencesBody(context);
+    } else {
+      body = const SizedBox.shrink();
     }
 
-    if (widget.kind == ModuleKind.homework) {
-      return _buildHomeworkBody(context);
-    }
-
-    if (widget.kind == ModuleKind.bulletins) {
-      return _buildBulletinsBody(context);
-    }
-
-    if (widget.kind == ModuleKind.scolarites) {
-      return _buildScolaritesBody(context);
-    }
-
-    if (widget.kind == ModuleKind.absences) {
-      return _buildAbsencesBody(context);
-    }
-
-    final listCandidate =
-        _data?['results'] ??
-        _data?['data'] ??
-        _data?['items'] ??
-        _data?['notes'] ??
-        _data?['homework'] ??
-        _data?['bulletins'] ??
-        _data?['notifications'] ??
-        _data?['scolarites'];
-
-    if (listCandidate is! List || listCandidate.isEmpty) {
-      return Center(
-        child: Text(
-          'Aucune donnée.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      );
-    }
-
-    final items = listCandidate
-        .whereType<Map>()
-        .map((e) {
-          return e.map((k, v) => MapEntry(k.toString(), v));
-        })
-        .toList(growable: false);
-
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppTheme.lg),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: AppTheme.md),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final title =
-            item['title']?.toString() ??
-            item['matiere']?.toString() ??
-            item['subject']?.toString() ??
-            item['libelle']?.toString() ??
-            item['name']?.toString() ??
-            'Élément ${index + 1}';
-        final subtitle =
-            item['date']?.toString() ??
-            item['created_at']?.toString() ??
-            item['periode']?.toString() ??
-            item['message']?.toString() ??
-            '';
-
-        return Container(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.borderColor),
+    return Stack(
+      children: [
+        body,
+        if (_refreshing)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: const LinearProgressIndicator(minHeight: 3),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: AppTheme.sm),
-                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ],
-          ),
-        );
-      },
+      ],
     );
   }
 

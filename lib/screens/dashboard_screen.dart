@@ -21,8 +21,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0;
-
   bool _loadingEstablishments = false;
   String? _establishmentsError;
   List<Map<String, dynamic>> _establishments = const [];
@@ -52,6 +50,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loadChildren();
       }
     });
+  }
+
+  BoxDecoration _glassCardDecoration() {
+    return BoxDecoration(
+      color: Colors.white.withOpacity(0.86),
+      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      border: Border.all(color: Colors.white.withOpacity(0.55)),
+      boxShadow: const [AppTheme.shadowSmall],
+    );
+  }
+
+  Widget _sectionHeader(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.primaryColor.withOpacity(0.20),
+                AppTheme.primaryColor.withOpacity(0.06),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.18)),
+          ),
+          child: Icon(icon, size: 18, color: AppTheme.primaryColor),
+        ),
+        const SizedBox(width: AppTheme.md),
+        Expanded(
+          child: Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+        if (trailing != null) trailing,
+      ],
+    );
   }
 
   @override
@@ -91,12 +137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Container(
           padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.borderColor),
-            boxShadow: const [AppTheme.shadowSmall],
-          ),
+          decoration: _glassCardDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -477,86 +518,185 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Tableau de bord'),
-          elevation: 0,
-          actions: [
-            Padding(
-              padding: const EdgeInsets.all(AppTheme.md),
-              child: Center(
-                child: Consumer<AuthProvider>(
-                  builder: (context, authProvider, _) {
-                    final user = authProvider.currentUser;
-                    return Text(
-                      user?.fullName ?? 'Utilisateur',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    );
-                  },
+        body: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppTheme.lg,
+                  AppTheme.lg,
+                  AppTheme.lg,
+                  0,
+                ),
+                child: _buildHeroHeader(context),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildEstablishmentsSection(context),
+                    const SizedBox(height: AppTheme.lg),
+                    _buildAcademicYearSection(context),
+                    if (context.watch<ParentContextProvider>().hasEstablishment)
+                      const SizedBox(height: AppTheme.lg),
+                    _buildChildrenSection(context),
+                    const SizedBox(height: AppTheme.xl),
+                    _buildSectionTitle(context, 'Modules'),
+                    const SizedBox(height: AppTheme.md),
+                    _buildFeaturesGrid(context),
+                    const SizedBox(height: AppTheme.xl),
+                    CustomButton(
+                      label: 'Se déconnecter',
+                      backgroundColor: AppTheme.errorColor,
+                      onPressed: () => _handleLogout(context),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
         ),
-        body: SingleChildScrollView(
+      ),
+    );
+  }
+
+  Widget _buildHeroHeader(BuildContext context) {
+    return Consumer2<AuthProvider, ParentContextProvider>(
+      builder: (context, authProvider, ctx, _) {
+        final user = authProvider.currentUser;
+        final firstName = (user?.fullName ?? 'Parent').split(' ').first;
+        final school = ctx.establishment?.name;
+        final child = ctx.child?.fullName;
+        final year = ctx.academicYear;
+
+        final contextLabel = [
+          if (school != null && school.trim().isNotEmpty) school,
+          if (year != null && year.trim().isNotEmpty) year,
+          if (child != null && child.trim().isNotEmpty) child,
+        ].join(' • ');
+
+        return Container(
           padding: const EdgeInsets.all(AppTheme.lg),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppTheme.primaryColor,
+                AppTheme.primaryColor.withOpacity(0.85),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            boxShadow: const [AppTheme.shadowLarge],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Carte de bienvenue
-              _buildWelcomeCard(context),
-
-              const SizedBox(height: AppTheme.md),
-
-              _buildContextHint(context),
-
-              const SizedBox(height: AppTheme.lg),
-
-              _buildEstablishmentsSection(context),
-
-              const SizedBox(height: AppTheme.lg),
-
-              _buildAcademicYearSection(context),
-
-              if (context.watch<ParentContextProvider>().hasEstablishment)
-                const SizedBox(height: AppTheme.lg),
-
-              _buildChildrenSection(context),
-
-              const SizedBox(height: AppTheme.xl),
-
-              // Grille de fonctionnalités
-              _buildFeaturesGrid(context),
-
-              const SizedBox(height: AppTheme.xl),
-
-              // Bouton de déconnexion
-              CustomButton(
-                label: 'Se déconnecter',
-                backgroundColor: AppTheme.errorColor,
-                onPressed: () => _handleLogout(context),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tableau de bord',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppTheme.md,
+                      vertical: AppTheme.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.radiusCircle,
+                      ),
+                      border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    ),
+                    child: Text(
+                      firstName,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              const SizedBox(height: AppTheme.md),
+              Text(
+                'Bonjour $firstName',
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppTheme.sm),
+              Text(
+                'Suivi scolaire moderne et sécurisé',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+              const SizedBox(height: AppTheme.lg),
+              if (contextLabel.trim().isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.md,
+                    vertical: AppTheme.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+                    border: Border.all(color: Colors.white.withOpacity(0.18)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified_user,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: AppTheme.sm),
+                      Flexible(
+                        child: Text(
+                          contextLabel,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Text(
+                  'Choisissez une école et un enfant pour accéder aux modules.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSectionTitle(BuildContext context, String title) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(title, style: Theme.of(context).textTheme.headlineSmall),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today),
-              label: 'Emploi du temps',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.grade), label: 'Notes'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -583,21 +723,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: const LinearProgressIndicator(minHeight: 3),
                 ),
               if (_loadingEstablishments) const SizedBox(height: AppTheme.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Mes écoles',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _loadingEstablishments
-                        ? null
-                        : _scheduleLoadEstablishments,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
+              _sectionHeader(
+                context,
+                icon: Icons.school,
+                title: 'Mes écoles',
+                trailing: IconButton(
+                  onPressed: _loadingEstablishments
+                      ? null
+                      : _scheduleLoadEstablishments,
+                  icon: const Icon(Icons.refresh),
+                ),
               ),
               const SizedBox(height: AppTheme.md),
               if (_establishmentsError != null)
@@ -662,13 +797,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         boxShadow: isSelected
                                             ? const [AppTheme.shadowSmall]
                                             : const [],
-                                        color: isSelected
-                                            ? AppTheme.primaryColor.withOpacity(
-                                                0.18,
-                                              )
-                                            : AppTheme.primaryColor.withOpacity(
-                                                0.08,
-                                              ),
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            AppTheme.primaryColor.withOpacity(
+                                              isSelected ? 0.22 : 0.12,
+                                            ),
+                                            AppTheme.primaryColor.withOpacity(
+                                              isSelected ? 0.10 : 0.04,
+                                            ),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
                                         border: Border.all(
                                           color: isSelected
                                               ? AppTheme.primaryColor
@@ -799,19 +939,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: const LinearProgressIndicator(minHeight: 3),
                 ),
               if (_loadingChildren) const SizedBox(height: AppTheme.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Mes enfants',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _loadingChildren ? null : _loadChildren,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
+              _sectionHeader(
+                context,
+                icon: Icons.person,
+                title: 'Mes enfants',
+                trailing: IconButton(
+                  onPressed: _loadingChildren ? null : _loadChildren,
+                  icon: const Icon(Icons.refresh),
+                ),
               ),
               const SizedBox(height: AppTheme.md),
               if (_childrenError != null)
@@ -955,107 +1090,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Construire la carte de bienvenue
-  Widget _buildWelcomeCard(BuildContext context) {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        final user = authProvider.currentUser;
-        final firstName = (user?.fullName ?? 'Parent').split(' ').first;
-
-        return Container(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppTheme.primaryColor,
-                AppTheme.primaryColor.withOpacity(0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            boxShadow: const [AppTheme.shadowMedium],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Bonjour $firstName',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppTheme.sm),
-              Text(
-                'Suivi scolaire',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: Colors.white),
-              ),
-              const SizedBox(height: AppTheme.md),
-              Text(
-                'Choisissez une école et un enfant pour accéder aux modules.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildContextHint(BuildContext context) {
-    return Consumer<ParentContextProvider>(
-      builder: (context, ctx, _) {
-        final school = ctx.establishment?.name;
-        final child = ctx.child?.fullName;
-        final year = ctx.academicYear;
-
-        String value;
-        if (school == null) {
-          value = 'Aucune école sélectionnée';
-        } else if (child == null) {
-          value = 'École: $school';
-        } else {
-          value = [
-            'École: $school',
-            if (year != null && year.trim().isNotEmpty) 'Année: $year',
-            'Élève: $child',
-          ].join(' • ');
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(AppTheme.md),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.borderColor),
-            boxShadow: const [AppTheme.shadowSmall],
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                size: 18,
-                color: AppTheme.primaryColor,
-              ),
-              const SizedBox(width: AppTheme.md),
-              Expanded(
-                child: Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   /// Construire la grille de fonctionnalités
   Widget _buildFeaturesGrid(BuildContext context) {
     final features = [
@@ -1109,79 +1143,110 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemBuilder: (context, index) {
         final feature = features[index];
 
-        return GestureDetector(
-          onTap: () {
-            if (feature['title'] == 'Emploi du temps') {
-              _openTimetableFlow(context);
-              return;
-            }
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            onTap: () {
+              if (feature['title'] == 'Emploi du temps') {
+                _openTimetableFlow(context);
+                return;
+              }
 
-            if (feature['title'] == 'Notes') {
-              _openModule('notes');
-              return;
-            }
+              if (feature['title'] == 'Notes') {
+                _openModule('notes');
+                return;
+              }
 
-            if (feature['title'] == 'Devoirs') {
-              _openModule('homework');
-              return;
-            }
+              if (feature['title'] == 'Devoirs') {
+                _openModule('homework');
+                return;
+              }
 
-            if (feature['title'] == 'Notifications') {
-              _openModule('notifications');
-              return;
-            }
+              if (feature['title'] == 'Notifications') {
+                _openModule('notifications');
+                return;
+              }
 
-            if (feature['title'] == 'Bulletins') {
-              _openModule('bulletins');
-              return;
-            }
+              if (feature['title'] == 'Bulletins') {
+                _openModule('bulletins');
+                return;
+              }
 
-            if (feature['title'] == 'Absences') {
-              _openModule('absences');
-              return;
-            }
+              if (feature['title'] == 'Absences') {
+                _openModule('absences');
+                return;
+              }
 
-            if (feature['title'] == 'Scolarités') {
-              _openModule('scolarites');
-              return;
-            }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: const [AppTheme.shadowSmall],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  child: Icon(
-                    feature['icon'] as IconData,
-                    color: AppTheme.primaryColor,
-                    size: 28,
-                  ),
+              if (feature['title'] == 'Scolarités') {
+                _openModule('scolarites');
+                return;
+              }
+            },
+            child: Ink(
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                border: Border.all(color: AppTheme.borderColor),
+                boxShadow: const [AppTheme.shadowSmall],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppTheme.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.primaryColor.withOpacity(0.18),
+                                AppTheme.primaryColor.withOpacity(0.08),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusLarge,
+                            ),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.18),
+                            ),
+                          ),
+                          child: Icon(
+                            feature['icon'] as IconData,
+                            color: AppTheme.primaryColor,
+                            size: 22,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: AppTheme.textTertiaryColor,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.md),
+                    Text(
+                      feature['title'] as String,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.xs),
+                    Text(
+                      feature['description'] as String,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: AppTheme.md),
-                Text(
-                  feature['title'] as String,
-                  style: Theme.of(context).textTheme.titleMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: AppTheme.xs),
-                Text(
-                  feature['description'] as String,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -1213,19 +1278,109 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Déconnexion'),
-        content: const Text('Êtes-vous sûr de vouloir vous déconnecter?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(AppTheme.xl),
+        child: Container(
+          padding: const EdgeInsets.all(AppTheme.xl),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.92),
+            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+            border: Border.all(color: Colors.white.withOpacity(0.6)),
+            boxShadow: const [AppTheme.shadowLarge],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Déconnecter'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.primaryColor.withOpacity(0.20),
+                          AppTheme.primaryColor.withOpacity(0.06),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.18),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.logout,
+                      color: AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.md),
+                  Expanded(
+                    child: Text(
+                      'Déconnexion',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppTheme.md),
+              Text(
+                'Êtes-vous sûr de vouloir vous déconnecter ?',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: AppTheme.xl),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppTheme.primaryColor.withOpacity(0.25),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusLarge,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTheme.md,
+                        ),
+                      ),
+                      child: const Text('Annuler'),
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.md),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusLarge,
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppTheme.md,
+                        ),
+                      ),
+                      child: const Text('Déconnecter'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
 

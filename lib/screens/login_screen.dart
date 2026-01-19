@@ -152,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: AppTheme.lg),
                     Text(
-                      'GestEcole',
+                      'GestScolaire',
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         color: AppTheme.textPrimaryColor,
                         fontWeight: FontWeight.w700,

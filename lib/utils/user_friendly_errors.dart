@@ -65,12 +65,28 @@ class UserFriendlyErrors {
     final s = msg.trim();
     if (s.isEmpty) return null;
 
+    // Mappings for common technical backend messages.
+    final lowerFull = s.toLowerCase();
+    if (lowerFull.contains('tenant_id') && lowerFull.contains('requis')) {
+      return 'Veuillez choisir une école, puis réessayer.';
+    }
+    if (lowerFull.contains('eleve_id') && lowerFull.contains('requis')) {
+      return 'Veuillez sélectionner un enfant, puis réessayer.';
+    }
+
     // Drop obviously technical/internal strings.
     final lower = s.toLowerCase();
     if (lower.contains('exception') ||
         lower.contains('stack trace') ||
         lower.contains('traceback') ||
-        lower.contains('dioexception')) {
+        lower.contains('dioexception') ||
+        lower.contains('null') ||
+        lower.contains('keyerror') ||
+        lower.contains('attributeerror') ||
+        lower.contains('typeerror') ||
+        lower.contains('valueerror') ||
+        lower.contains('tenant_id') ||
+        lower.contains('eleve_id')) {
       return null;
     }
 
