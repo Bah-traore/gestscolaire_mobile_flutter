@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart' as custom;
+import '../../utils/user_friendly_errors.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -53,7 +54,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {

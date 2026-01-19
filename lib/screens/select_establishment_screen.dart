@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/establishments_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart' as custom;
+import '../utils/user_friendly_errors.dart';
 
 class SelectEstablishmentScreen extends StatefulWidget {
   const SelectEstablishmentScreen({super.key});
@@ -53,29 +54,13 @@ class _SelectEstablishmentScreenState extends State<SelectEstablishmentScreen> {
       setState(() {
         _establishments = items;
       });
-
-      if (items.length == 1) {
-        await _select(items.first);
-      }
     } on DioException catch (e) {
-      String? message;
-      final data = e.response?.data;
-      if (data is Map) {
-        final mapped = Map<String, dynamic>.from(data);
-        final err = mapped['error'] ?? mapped['message'] ?? mapped['detail'];
-        if (err != null) {
-          message = err.toString();
-        }
-      }
       setState(() {
-        _error = (message ?? e.message ?? 'Erreur réseau').replaceAll(
-          'Exception: ',
-          '',
-        );
+        _error = UserFriendlyErrors.fromDio(e);
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {
@@ -142,7 +127,7 @@ class _SelectEstablishmentScreenState extends State<SelectEstablishmentScreen> {
       Navigator.of(context).pushReplacementNamed('/select-child');
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {

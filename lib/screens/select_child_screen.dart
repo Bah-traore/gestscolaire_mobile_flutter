@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/children_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart' as custom;
+import '../utils/user_friendly_errors.dart';
 
 class SelectChildScreen extends StatefulWidget {
   const SelectChildScreen({super.key});
@@ -46,13 +47,9 @@ class _SelectChildScreenState extends State<SelectChildScreen> {
       setState(() {
         _children = items;
       });
-
-      if (items.length == 1) {
-        await _select(items.first);
-      }
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {

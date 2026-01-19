@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/parent_context_provider.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../services/timetable_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart' as custom;
 import '../models/timetable_models.dart';
+import '../utils/user_friendly_errors.dart';
+import 'package:dio/dio.dart';
 
 enum TimetableViewMode { week, list }
 
@@ -57,6 +60,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     try {
       final api = context.read<ApiService>();
+      final authService = context.read<AuthService>();
       final timetableService = TimetableService(api);
       final ctx = context.read<ParentContextProvider>();
       final tenantId = ctx.establishment?.tenantId;
@@ -68,20 +72,48 @@ class _TimetableScreenState extends State<TimetableScreen> {
         throw Exception('Veuillez sélectionner un enfant');
       }
 
-      final resp = await timetableService.fetchTimetable(
-        tenantId: tenantId,
-        eleveId: eleveId,
-        start: _weekStart,
-        end: _weekEnd,
-        view: 'week',
-      );
+      TimetableResponse resp;
+      try {
+        resp = await timetableService.fetchTimetable(
+          tenantId: tenantId,
+          eleveId: eleveId,
+          start: _weekStart,
+          end: _weekEnd,
+          view: 'week',
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          final refreshed = await authService.refreshAccessToken();
+          if (refreshed) {
+            resp = await timetableService.fetchTimetable(
+              tenantId: tenantId,
+              eleveId: eleveId,
+              start: _weekStart,
+              end: _weekEnd,
+              view: 'week',
+            );
+          } else {
+            await authService.logout();
+            if (!mounted) return;
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/login', (route) => false);
+            setState(() {
+              _error = 'Votre session a expiré. Veuillez vous reconnecter.';
+            });
+            return;
+          }
+        } else {
+          rethrow;
+        }
+      }
 
       setState(() {
         _data = resp;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
+        _error = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {
@@ -113,7 +145,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/select-establishment');
+              Navigator.of(context).pushReplacementNamed('/dashboard');
             },
             child: const Text('Changer d\'école'),
           ),
@@ -169,7 +201,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       onTap: () {
                         Navigator.of(
                           context,
-                        ).pushReplacementNamed('/select-child');
+                        ).pushReplacementNamed('/dashboard');
                       },
                       borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
                       child: Container(

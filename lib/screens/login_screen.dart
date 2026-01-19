@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../utils/user_friendly_errors.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'auth/forgot_password_screen.dart';
@@ -94,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
         authProvider.clearError();
         await authProvider.init();
         if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/select-establishment');
+        Navigator.of(context).pushReplacementNamed('/dashboard');
         return;
       }
 
@@ -102,12 +103,12 @@ class _LoginScreenState extends State<LoginScreen> {
       authProvider.clearError();
       await authProvider.init();
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/select-establishment');
+      Navigator.of(context).pushReplacementNamed('/dashboard');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceAll('Exception: ', '')),
+          content: Text(UserFriendlyErrors.from(e)),
           backgroundColor: Colors.red,
         ),
       );
@@ -368,7 +369,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
-      Navigator.of(context).pushReplacementNamed('/select-establishment');
+      Navigator.of(context).pushReplacementNamed('/dashboard');
     }
   }
 }

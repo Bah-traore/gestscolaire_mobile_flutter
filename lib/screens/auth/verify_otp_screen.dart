@@ -5,6 +5,7 @@ import '../../services/firebase_otp_service.dart';
 import '../../config/app_theme.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart' as custom;
+import '../../utils/user_friendly_errors.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
   final String phone;
@@ -77,7 +78,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {

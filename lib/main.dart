@@ -7,8 +7,6 @@ import 'providers/auth_provider.dart';
 import 'providers/parent_context_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/select_child_screen.dart';
-import 'screens/select_establishment_screen.dart';
 import 'screens/timetable_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
@@ -53,9 +51,6 @@ class MyApp extends StatelessWidget {
         routes: {
           '/login': (context) => const LoginScreen(),
           '/dashboard': (context) => const DashboardScreen(),
-          '/select-establishment': (context) =>
-              const SelectEstablishmentScreen(),
-          '/select-child': (context) => const SelectChildScreen(),
           '/timetable': (context) => const TimetableScreen(),
         },
         debugShowCheckedModeBanner: false,

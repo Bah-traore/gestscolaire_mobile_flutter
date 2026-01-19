@@ -31,9 +31,6 @@ class UserFriendlyErrors {
     if (status == 401) {
       return 'Votre session a expiré. Veuillez vous reconnecter.';
     }
-    if (status == 403) {
-      return 'Accès refusé.';
-    }
     if (status == 404) {
       return 'Service indisponible pour le moment. Veuillez réessayer plus tard.';
     }
@@ -44,11 +41,20 @@ class UserFriendlyErrors {
     final data = e.response?.data;
     if (data is Map) {
       final mapped = Map<String, dynamic>.from(data);
-      final raw = mapped['error'] ?? mapped['message'] ?? mapped['detail'];
+      final subscription = mapped['subscription'];
+      final raw =
+          mapped['error'] ??
+          mapped['message'] ??
+          mapped['detail'] ??
+          (subscription is Map ? subscription['message'] : null);
       final safe = _sanitize(raw?.toString());
       if (safe != null && safe.isNotEmpty) {
         return safe;
       }
+    }
+
+    if (status == 403) {
+      return 'Accès refusé.';
     }
 
     return 'Une erreur est survenue. Veuillez réessayer.';

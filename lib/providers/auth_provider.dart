@@ -92,7 +92,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = UserFriendlyErrors.from(e);
       _isLoading = false;
       notifyListeners();
 
@@ -116,7 +116,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = UserFriendlyErrors.from(e);
       _isLoading = false;
       notifyListeners();
 
@@ -158,7 +158,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = UserFriendlyErrors.from(e);
       _isLoading = false;
       notifyListeners();
 
@@ -186,7 +186,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = UserFriendlyErrors.from(e);
       _isLoading = false;
       notifyListeners();
 
@@ -208,7 +208,7 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = UserFriendlyErrors.from(e);
       _isLoading = false;
       notifyListeners();
 

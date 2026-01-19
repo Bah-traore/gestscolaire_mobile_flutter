@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart' as custom;
 import '../../config/app_theme.dart';
+import '../../utils/user_friendly_errors.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -72,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {

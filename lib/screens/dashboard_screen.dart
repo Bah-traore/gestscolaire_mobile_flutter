@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/establishments_service.dart';
 import '../services/children_service.dart';
+import '../services/modules_service.dart';
 import '../utils/user_friendly_errors.dart';
 import 'package:dio/dio.dart';
 
@@ -101,14 +102,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return;
       }
 
-      final data = e.response?.data;
-      if (data is Map) {
-        final mapped = Map<String, dynamic>.from(data);
-        final err = mapped['error'] ?? mapped['message'] ?? mapped['detail'];
-        if (err != null) {
-          err.toString();
-        }
-      }
       setState(() {
         _establishmentsError = UserFriendlyErrors.fromDio(e);
       });
@@ -175,14 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return;
       }
 
-      final data = e.response?.data;
-      if (data is Map) {
-        final mapped = Map<String, dynamic>.from(data);
-        final err = mapped['error'] ?? mapped['message'] ?? mapped['detail'];
-        if (err != null) {
-          err.toString();
-        }
-      }
       setState(() {
         _childrenError = UserFriendlyErrors.fromDio(e);
       });
@@ -258,7 +243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await _loadChildren();
     } catch (e) {
       setState(() {
-        _establishmentsError = e.toString().replaceAll('Exception: ', '');
+        _establishmentsError = UserFriendlyErrors.from(e);
       });
     } finally {
       setState(() {
@@ -283,9 +268,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
         className: className.isNotEmpty ? className : null,
       ),
     );
+  }
 
-    if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/timetable');
+  Future<void> _openModule(BuildContext context, String module) async {
+    final ctx = context.read<ParentContextProvider>();
+
+    if (!ctx.hasEstablishment) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez choisir une école.')),
+      );
+      return;
+    }
+
+    if (!ctx.hasChild) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez choisir un élève.')),
+      );
+      return;
+    }
+
+    final tenant = ctx.establishment!.subdomain;
+    final eleveId = ctx.child!.id;
+
+    try {
+      final api = context.read<ApiService>();
+      final authService = context.read<AuthService>();
+      final service = ModulesService(api);
+
+      Map<String, dynamic> resp;
+      Future<Map<String, dynamic>> run() {
+        switch (module) {
+          case 'notes':
+            return service.fetchNotes(tenant: tenant, eleveId: eleveId);
+          case 'homework':
+            return service.fetchHomework(tenant: tenant, eleveId: eleveId);
+          case 'bulletins':
+            return service.fetchBulletins(tenant: tenant, eleveId: eleveId);
+          case 'notifications':
+            return service.fetchNotifications(tenant: tenant, eleveId: eleveId);
+          case 'scolarites':
+            return service.fetchScolarites(tenant: tenant, eleveId: eleveId);
+          default:
+            return Future.value(<String, dynamic>{});
+        }
+      }
+
+      try {
+        resp = await run();
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          final refreshed = await authService.refreshAccessToken();
+          if (refreshed) {
+            resp = await run();
+          } else {
+            await authService.logout();
+            if (!mounted) return;
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/login', (route) => false);
+            return;
+          }
+        } else {
+          rethrow;
+        }
+      }
+
+      int? count;
+      final listCandidate =
+          resp['results'] ??
+          resp['data'] ??
+          resp['items'] ??
+          resp['notes'] ??
+          resp['homework'] ??
+          resp['bulletins'] ??
+          resp['notifications'] ??
+          resp['scolarites'];
+      if (listCandidate is List) {
+        count = listCandidate.length;
+      }
+
+      final label = switch (module) {
+        'notes' => 'Notes',
+        'homework' => 'Devoirs',
+        'bulletins' => 'Bulletins',
+        'notifications' => 'Notifications',
+        'scolarites' => 'Scolarités',
+        _ => 'Module',
+      };
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count == null
+                ? '$label chargé.'
+                : '$label chargé ($count élément(s)).',
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(UserFriendlyErrors.from(e))));
+    }
   }
 
   @override
@@ -355,10 +439,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           setState(() {
             _selectedIndex = index;
           });
-
-          if (index == 1) {
-            _openTimetableFlow(context);
-          }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
@@ -588,61 +668,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         final selectedChildId = parentCtx.child?.id;
-
-        final currentChild = parentCtx.child;
-        if (currentChild != null) {
-          return Container(
-            padding: const EdgeInsets.all(AppTheme.lg),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: const [AppTheme.shadowSmall],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  ),
-                  child: const Icon(Icons.person, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: AppTheme.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        currentChild.fullName,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if ((currentChild.className ?? '')
-                          .toString()
-                          .trim()
-                          .isNotEmpty)
-                        Text(
-                          (currentChild.className ?? '').toString(),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: _loadingChildren
-                      ? null
-                      : () {
-                          parentCtx.clearChild();
-                          _loadChildren();
-                        },
-                  child: const Text('Changer'),
-                ),
-              ],
-            ),
-          );
-        }
 
         return Container(
           padding: const EdgeInsets.all(AppTheme.lg),
@@ -885,6 +910,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'title': 'Notifications',
         'description': 'Vos messages',
       },
+      {
+        'icon': Icons.insert_drive_file,
+        'title': 'Bulletins',
+        'description': 'Voir les bulletins',
+      },
+      {
+        'icon': Icons.payments,
+        'title': 'Scolarités',
+        'description': 'Voir les paiements',
+      },
     ];
 
     return GridView.builder(
@@ -904,6 +939,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onTap: () {
             if (feature['title'] == 'Emploi du temps') {
               _openTimetableFlow(context);
+              return;
+            }
+
+            if (feature['title'] == 'Notes') {
+              _openModule(context, 'notes');
+              return;
+            }
+
+            if (feature['title'] == 'Devoirs') {
+              _openModule(context, 'homework');
+              return;
+            }
+
+            if (feature['title'] == 'Notifications') {
+              _openModule(context, 'notifications');
+              return;
+            }
+
+            if (feature['title'] == 'Bulletins') {
+              _openModule(context, 'bulletins');
+              return;
+            }
+
+            if (feature['title'] == 'Scolarités') {
+              _openModule(context, 'scolarites');
+              return;
             }
           },
           child: Container(

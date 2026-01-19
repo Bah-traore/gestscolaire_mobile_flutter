@@ -99,7 +99,11 @@ class FirebaseOtpService {
     } catch (e) {
       _logger.e('Erreur envoi OTP: $e');
       if (!completer.isCompleted) {
-        completer.complete({'success': false, 'error': e.toString()});
+        completer.complete({
+          'success': false,
+          'error':
+              "Impossible d'envoyer le code pour le moment. Veuillez réessayer.",
+        });
       }
       return await completer.future;
     }
@@ -148,7 +152,10 @@ class FirebaseOtpService {
       }
     } catch (e) {
       _logger.e('Erreur vérification OTP: $e');
-      return {'success': false, 'error': e.toString()};
+      return {
+        'success': false,
+        'error': "Impossible de vérifier le code. Veuillez réessayer.",
+      };
     }
   }
 
