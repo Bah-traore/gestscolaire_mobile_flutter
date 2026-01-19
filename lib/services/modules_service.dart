@@ -6,56 +6,51 @@ class ModulesService {
   ModulesService(this._api);
 
   Future<Map<String, dynamic>> fetchNotes({
-    required String tenant,
     required int eleveId,
     String? annee,
   }) async {
     return _api.get<Map<String, dynamic>>(
-      '/parent/$tenant/notes/',
+      '/parent/notes/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }
 
   Future<Map<String, dynamic>> fetchHomework({
-    required String tenant,
     required int eleveId,
     String? annee,
   }) async {
     return _api.get<Map<String, dynamic>>(
-      '/parent/$tenant/homework/',
+      '/parent/homework/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }
 
   Future<Map<String, dynamic>> fetchBulletins({
-    required String tenant,
     required int eleveId,
     String? annee,
   }) async {
     return _api.get<Map<String, dynamic>>(
-      '/parent/$tenant/bulletins/',
+      '/parent/bulletins/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }
 
   Future<Map<String, dynamic>> fetchNotifications({
-    required String tenant,
     required int eleveId,
     String? annee,
   }) async {
     return _api.get<Map<String, dynamic>>(
-      '/parent/$tenant/notifications/',
+      '/parent/notifications/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }
 
   Future<Map<String, dynamic>> fetchScolarites({
-    required String tenant,
     required int eleveId,
     String? annee,
   }) async {
     return _api.get<Map<String, dynamic>>(
-      '/parent/$tenant/scolarites/',
+      '/parent/scolarites/',
       queryParameters: {'eleve_id': eleveId, if (annee != null) 'annee': annee},
     );
   }

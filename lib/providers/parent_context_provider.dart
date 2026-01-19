@@ -27,9 +27,11 @@ class SelectedChild {
 class ParentContextProvider extends ChangeNotifier {
   SelectedEstablishment? _establishment;
   SelectedChild? _child;
+  String? _academicYear;
 
   SelectedEstablishment? get establishment => _establishment;
   SelectedChild? get child => _child;
+  String? get academicYear => _academicYear;
 
   bool get hasEstablishment => _establishment != null;
   bool get hasChild => _child != null;
@@ -37,6 +39,14 @@ class ParentContextProvider extends ChangeNotifier {
   void setEstablishment(SelectedEstablishment establishment) {
     _establishment = establishment;
     _child = null;
+    _academicYear = null;
+    notifyListeners();
+  }
+
+  void setAcademicYear(String? academicYear) {
+    _academicYear = academicYear?.trim().isEmpty ?? true
+        ? null
+        : academicYear!.trim();
     notifyListeners();
   }
 
@@ -53,6 +63,7 @@ class ParentContextProvider extends ChangeNotifier {
   void clear() {
     _establishment = null;
     _child = null;
+    _academicYear = null;
     notifyListeners();
   }
 }

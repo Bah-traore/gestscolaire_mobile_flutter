@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'config/app_config.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/parent_context_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/modules_screen.dart';
 import 'screens/timetable_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  Intl.defaultLocale = 'fr_FR';
+  await initializeDateFormatting('fr_FR', null);
 
   // Initialiser Firebase
   await Firebase.initializeApp();
@@ -47,11 +54,27 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),
         themeMode: ThemeMode.light, // TODO: Ajouter la gestion du mode sombre
+        locale: const Locale('fr', 'FR'),
+        supportedLocales: const [Locale('fr', 'FR')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: const AppRouter(),
         routes: {
           '/login': (context) => const LoginScreen(),
           '/dashboard': (context) => const DashboardScreen(),
           '/timetable': (context) => const TimetableScreen(),
+          '/notes': (context) => const ModulesScreen(kind: ModuleKind.notes),
+          '/homework': (context) =>
+              const ModulesScreen(kind: ModuleKind.homework),
+          '/bulletins': (context) =>
+              const ModulesScreen(kind: ModuleKind.bulletins),
+          '/notifications': (context) =>
+              const ModulesScreen(kind: ModuleKind.notifications),
+          '/scolarites': (context) =>
+              const ModulesScreen(kind: ModuleKind.scolarites),
         },
         debugShowCheckedModeBanner: false,
       ),

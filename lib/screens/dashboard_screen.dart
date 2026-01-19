@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/custom_button.dart';
 import '../providers/parent_context_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../services/establishments_service.dart';
 import '../services/children_service.dart';
-import '../services/modules_service.dart';
+import '../services/establishments_service.dart';
 import '../utils/user_friendly_errors.dart';
+import '../widgets/custom_button.dart';
 import 'package:dio/dio.dart';
 
 /// Écran du tableau de bord
@@ -31,6 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _childrenError;
   List<Map<String, dynamic>> _children = const [];
 
+  List<String> _availableYears = const [];
+  Map<String, String> _yearLabelToValue = const {};
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +43,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loadChildren();
       }
     });
+  }
+
+  Widget _buildAcademicYearSection(BuildContext context) {
+    return Consumer<ParentContextProvider>(
+      builder: (context, parentCtx, _) {
+        if (!parentCtx.hasEstablishment) {
+          return const SizedBox.shrink();
+        }
+
+        final years = _availableYears;
+        if (years.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final selectedValue = parentCtx.academicYear;
+        String? selectedLabel;
+        if (selectedValue != null && selectedValue.isNotEmpty) {
+          for (final entry in _yearLabelToValue.entries) {
+            if (entry.value == selectedValue) {
+              selectedLabel = entry.key;
+              break;
+            }
+          }
+        }
+
+        final value = (selectedLabel != null && years.contains(selectedLabel))
+            ? selectedLabel
+            : (years.isNotEmpty ? years.first : null);
+
+        return Container(
+          padding: const EdgeInsets.all(AppTheme.lg),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: const [AppTheme.shadowSmall],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Année scolaire',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: AppTheme.sm),
+              DropdownButtonFormField<String>(
+                value: value,
+                isExpanded: true,
+                items: years
+                    .map(
+                      (y) => DropdownMenuItem<String>(
+                        value: y,
+                        child: Text(y, overflow: TextOverflow.ellipsis),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _loadingChildren
+                    ? null
+                    : (v) async {
+                        final nextValue = v == null
+                            ? null
+                            : (_yearLabelToValue[v] ?? v);
+                        parentCtx.setAcademicYear(nextValue);
+                        await _loadChildren();
+                      },
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _loadEstablishments() async {
@@ -134,7 +211,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       final api = context.read<ApiService>();
       final service = ChildrenService(api);
-      final items = await service.fetchChildren(establishmentId: est.subdomain);
+      final items = await service.fetchChildren(
+        establishmentId: est.subdomain,
+        academicYear: ctx.academicYear,
+      );
       setState(() {
         _children = items;
       });
@@ -152,6 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final service = ChildrenService(api);
               final items = await service.fetchChildren(
                 establishmentId: est.subdomain,
+                academicYear: ctx.academicYear,
               );
               setState(() {
                 _children = items;
@@ -215,6 +296,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       final ctx = context.read<ParentContextProvider>();
+      final previousSubdomain = ctx.establishment?.subdomain;
+      final previousYear = ctx.academicYear;
       ctx.setEstablishment(
         SelectedEstablishment(
           subdomain: subdomain,
@@ -225,6 +308,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
 
+      if (previousSubdomain != subdomain) {
+        setState(() {
+          _availableYears = const [];
+          _yearLabelToValue = const {};
+        });
+      }
+
       final accessToken = resp['access_token'];
       final refreshToken = resp['refresh_token'];
       if (accessToken is String && accessToken.isNotEmpty) {
@@ -233,6 +323,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
           accessToken: accessToken,
           refreshToken: refreshToken is String ? refreshToken : null,
         );
+      }
+
+      final yearsRaw = resp['years'];
+      final Map<String, String> mapping = {};
+      final List<String> labels = [];
+
+      if (yearsRaw is List) {
+        for (final item in yearsRaw) {
+          if (item is Map) {
+            final m = Map<String, dynamic>.from(item);
+            final label = (m['label'] ?? m['annee'] ?? m['name'] ?? '')
+                .toString()
+                .trim();
+            final value = (m['value'] ?? m['annee'] ?? label).toString().trim();
+            if (label.isNotEmpty) {
+              labels.add(label);
+              mapping[label] = value.isNotEmpty ? value : label;
+            }
+          } else {
+            final s = item.toString().trim();
+            if (s.isNotEmpty) {
+              labels.add(s);
+              mapping[s] = s;
+            }
+          }
+        }
+      }
+
+      final selectedYearRaw = (resp['selected_year'] ?? '').toString().trim();
+      final selectedFromBackend = selectedYearRaw.isNotEmpty
+          ? selectedYearRaw
+          : (labels.isNotEmpty ? mapping[labels.first] : null);
+
+      setState(() {
+        _availableYears = labels;
+        _yearLabelToValue = mapping;
+      });
+
+      final shouldPreserveYear =
+          previousSubdomain == subdomain && (previousYear ?? '').isNotEmpty;
+      if (shouldPreserveYear) {
+        ctx.setAcademicYear(previousYear);
+      } else {
+        ctx.setAcademicYear(selectedFromBackend);
       }
 
       if (!mounted) return;
@@ -270,185 +404,127 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Future<void> _openModule(BuildContext context, String module) async {
-    final ctx = context.read<ParentContextProvider>();
+  Future<void> _openModule(String module) async {
+    final parentCtx = context.read<ParentContextProvider>();
 
-    if (!ctx.hasEstablishment) {
+    if (!parentCtx.hasEstablishment) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez choisir une école.')),
       );
       return;
     }
 
-    if (!ctx.hasChild) {
+    if (!parentCtx.hasChild) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez choisir un élève.')),
+        const SnackBar(content: Text('Veuillez sélectionner un enfant.')),
       );
       return;
     }
 
-    final tenant = ctx.establishment!.subdomain;
-    final eleveId = ctx.child!.id;
+    final route = switch (module) {
+      'notes' => '/notes',
+      'homework' => '/homework',
+      'bulletins' => '/bulletins',
+      'notifications' => '/notifications',
+      'scolarites' => '/scolarites',
+      _ => null,
+    };
 
-    try {
-      final api = context.read<ApiService>();
-      final authService = context.read<AuthService>();
-      final service = ModulesService(api);
-
-      Map<String, dynamic> resp;
-      Future<Map<String, dynamic>> run() {
-        switch (module) {
-          case 'notes':
-            return service.fetchNotes(tenant: tenant, eleveId: eleveId);
-          case 'homework':
-            return service.fetchHomework(tenant: tenant, eleveId: eleveId);
-          case 'bulletins':
-            return service.fetchBulletins(tenant: tenant, eleveId: eleveId);
-          case 'notifications':
-            return service.fetchNotifications(tenant: tenant, eleveId: eleveId);
-          case 'scolarites':
-            return service.fetchScolarites(tenant: tenant, eleveId: eleveId);
-          default:
-            return Future.value(<String, dynamic>{});
-        }
-      }
-
-      try {
-        resp = await run();
-      } on DioException catch (e) {
-        if (e.response?.statusCode == 401) {
-          final refreshed = await authService.refreshAccessToken();
-          if (refreshed) {
-            resp = await run();
-          } else {
-            await authService.logout();
-            if (!mounted) return;
-            Navigator.of(
-              context,
-            ).pushNamedAndRemoveUntil('/login', (route) => false);
-            return;
-          }
-        } else {
-          rethrow;
-        }
-      }
-
-      int? count;
-      final listCandidate =
-          resp['results'] ??
-          resp['data'] ??
-          resp['items'] ??
-          resp['notes'] ??
-          resp['homework'] ??
-          resp['bulletins'] ??
-          resp['notifications'] ??
-          resp['scolarites'];
-      if (listCandidate is List) {
-        count = listCandidate.length;
-      }
-
-      final label = switch (module) {
-        'notes' => 'Notes',
-        'homework' => 'Devoirs',
-        'bulletins' => 'Bulletins',
-        'notifications' => 'Notifications',
-        'scolarites' => 'Scolarités',
-        _ => 'Module',
-      };
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            count == null
-                ? '$label chargé.'
-                : '$label chargé ($count élément(s)).',
-          ),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(UserFriendlyErrors.from(e))));
+    if (route != null) {
+      Navigator.of(context).pushNamed(route);
+      return;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Tableau de bord'),
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(AppTheme.md),
-            child: Center(
-              child: Consumer<AuthProvider>(
-                builder: (context, authProvider, _) {
-                  final user = authProvider.currentUser;
-                  return Text(
-                    user?.fullName ?? 'Utilisateur',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  );
-                },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('Tableau de bord'),
+          elevation: 0,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.all(AppTheme.md),
+              child: Center(
+                child: Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
+                    final user = authProvider.currentUser;
+                    return Text(
+                      user?.fullName ?? 'Utilisateur',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    );
+                  },
+                ),
               ),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppTheme.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Carte de bienvenue
-            _buildWelcomeCard(context),
-
-            const SizedBox(height: AppTheme.lg),
-
-            _buildEstablishmentsSection(context),
-
-            const SizedBox(height: AppTheme.lg),
-
-            _buildChildrenSection(context),
-
-            const SizedBox(height: AppTheme.xl),
-
-            // Grille de fonctionnalités
-            _buildFeaturesGrid(context),
-
-            const SizedBox(height: AppTheme.xl),
-
-            // Statistiques rapides
-            _buildQuickStats(context),
-
-            const SizedBox(height: AppTheme.xl),
-
-            // Bouton de déconnexion
-            CustomButton(
-              label: 'Se déconnecter',
-              backgroundColor: AppTheme.errorColor,
-              onPressed: () => _handleLogout(context),
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
-            label: 'Emploi du temps',
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTheme.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Carte de bienvenue
+              _buildWelcomeCard(context),
+
+              const SizedBox(height: AppTheme.lg),
+
+              _buildEstablishmentsSection(context),
+
+              const SizedBox(height: AppTheme.lg),
+
+              _buildAcademicYearSection(context),
+
+              if (context.watch<ParentContextProvider>().hasEstablishment)
+                const SizedBox(height: AppTheme.lg),
+
+              _buildChildrenSection(context),
+
+              const SizedBox(height: AppTheme.xl),
+
+              // Grille de fonctionnalités
+              _buildFeaturesGrid(context),
+
+              const SizedBox(height: AppTheme.xl),
+
+              // Statistiques rapides
+              _buildQuickStats(context),
+
+              const SizedBox(height: AppTheme.xl),
+
+              // Bouton de déconnexion
+              CustomButton(
+                label: 'Se déconnecter',
+                backgroundColor: AppTheme.errorColor,
+                onPressed: () => _handleLogout(context),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.grade), label: 'Notes'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
-        ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calendar_today),
+              label: 'Emploi du temps',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.grade), label: 'Notes'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          ],
+        ),
       ),
     );
   }
@@ -943,27 +1019,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             if (feature['title'] == 'Notes') {
-              _openModule(context, 'notes');
+              _openModule('notes');
               return;
             }
 
             if (feature['title'] == 'Devoirs') {
-              _openModule(context, 'homework');
+              _openModule('homework');
               return;
             }
 
             if (feature['title'] == 'Notifications') {
-              _openModule(context, 'notifications');
+              _openModule('notifications');
               return;
             }
 
             if (feature['title'] == 'Bulletins') {
-              _openModule(context, 'bulletins');
+              _openModule('bulletins');
               return;
             }
 
             if (feature['title'] == 'Scolarités') {
-              _openModule(context, 'scolarites');
+              _openModule('scolarites');
               return;
             }
           },
