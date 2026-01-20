@@ -11,6 +11,7 @@ import '../utils/user_friendly_errors.dart';
 import '../widgets/custom_button.dart';
 import 'package:dio/dio.dart';
 import 'dart:async';
+import 'dart:ui';
 
 /// Écran du tableau de bord
 class DashboardScreen extends StatefulWidget {
@@ -578,111 +579,283 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (child != null && child.trim().isNotEmpty) child,
         ].join(' • ');
 
-        return Container(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppTheme.primaryColor,
-                AppTheme.primaryColor.withOpacity(0.85),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        final Color glowA = const Color(0xFF00E676);
+        final Color glowB = const Color(0xFF00BFA5);
+
+        Widget contextChip(IconData icon, String text) {
+          return Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.md,
+              vertical: 8,
             ),
-            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-            boxShadow: const [AppTheme.shadowLarge],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
+              border: Border.all(color: Colors.white.withOpacity(0.16)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: Colors.white.withOpacity(0.92)),
+                const SizedBox(width: AppTheme.sm),
+                Flexible(
+                  child: Text(
+                    text,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withOpacity(0.92),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+          child: Stack(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Tableau de bord',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryColor,
+                      Color.lerp(AppTheme.primaryColor, glowB, 0.42)!,
+                      Color.lerp(AppTheme.primaryColor, Colors.black, 0.25)!,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.md,
-                      vertical: AppTheme.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.14),
-                      borderRadius: BorderRadius.circular(
-                        AppTheme.radiusCircle,
-                      ),
-                      border: Border.all(color: Colors.white.withOpacity(0.18)),
-                    ),
-                    child: Text(
-                      firstName,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppTheme.md),
-              Text(
-                'Bonjour $firstName',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: AppTheme.sm),
-              Text(
-                'Suivi scolaire moderne et sécurisé',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-              ),
-              const SizedBox(height: AppTheme.lg),
-              if (contextLabel.trim().isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppTheme.md,
-                    vertical: AppTheme.sm,
-                  ),
+              Positioned(
+                top: -60,
+                right: -40,
+                child: Container(
+                  width: 220,
+                  height: 220,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusCircle),
-                    border: Border.all(color: Colors.white.withOpacity(0.18)),
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        glowA.withOpacity(0.35),
+                        glowA.withOpacity(0.00),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.verified_user,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: AppTheme.sm),
-                      Flexible(
-                        child: Text(
-                          contextLabel,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: Colors.white),
-                        ),
+                ),
+              ),
+              Positioned(
+                bottom: -80,
+                left: -60,
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        glowB.withOpacity(0.30),
+                        glowB.withOpacity(0.00),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
                       ),
                     ],
                   ),
-                )
-              else
-                Text(
-                  'Choisissez une école et un enfant pour accéder aux modules.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                 ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(AppTheme.lg),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      border: Border.all(color: Colors.white.withOpacity(0.14)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 54,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  colors: [glowA, glowB],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: glowA.withOpacity(0.22),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2.2),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.black.withOpacity(0.12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.16),
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      firstName.trim().isNotEmpty
+                                          ? firstName
+                                                .trim()
+                                                .substring(0, 1)
+                                                .toUpperCase()
+                                          : 'P',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Tableau de bord',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          color: Colors.white.withOpacity(0.92),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Bonjour $firstName',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.2,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.md,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusCircle,
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.16),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: glowA,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: glowA.withOpacity(0.55),
+                                          blurRadius: 10,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Connecté',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Colors.white.withOpacity(0.92),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.md),
+                        Text(
+                          'Suivi scolaire moderne et sécurisé',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Colors.white.withOpacity(0.80),
+                                fontWeight: FontWeight.w500,
+                              ),
+                        ),
+                        const SizedBox(height: AppTheme.lg),
+                        if ((school ?? '').trim().isNotEmpty ||
+                            (year ?? '').trim().isNotEmpty ||
+                            (child ?? '').trim().isNotEmpty)
+                          Wrap(
+                            spacing: AppTheme.sm,
+                            runSpacing: AppTheme.sm,
+                            children: [
+                              if ((school ?? '').trim().isNotEmpty)
+                                contextChip(Icons.school, school!.trim()),
+                              if ((year ?? '').trim().isNotEmpty)
+                                contextChip(Icons.event, year!.trim()),
+                              if ((child ?? '').trim().isNotEmpty)
+                                contextChip(Icons.person, child!.trim()),
+                            ],
+                          )
+                        else
+                          Text(
+                            'Choisissez une école et un enfant pour accéder aux modules.',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Colors.white.withOpacity(0.75),
+                                ),
+                          ),
+                        if (contextLabel.trim().isNotEmpty)
+                          const SizedBox(height: AppTheme.sm),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -1092,6 +1265,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Construire la grille de fonctionnalités
   Widget _buildFeaturesGrid(BuildContext context) {
+    final glowA = const Color(0xFF00E676);
+    final glowB = const Color.fromARGB(255, 38, 105, 73);
+
     final features = [
       {
         'icon': Icons.calendar_today,
@@ -1183,69 +1359,161 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return;
               }
             },
-            child: Ink(
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                border: Border.all(color: AppTheme.borderColor),
-                boxShadow: const [AppTheme.shadowSmall],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.primaryColor.withOpacity(0.18),
-                                AppTheme.primaryColor.withOpacity(0.08),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusLarge,
-                            ),
-                            border: Border.all(
-                              color: AppTheme.primaryColor.withOpacity(0.18),
-                            ),
-                          ),
-                          child: Icon(
-                            feature['icon'] as IconData,
-                            color: AppTheme.primaryColor,
-                            size: 22,
-                          ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+              child: Stack(
+                children: [
+                  Ink(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.surfaceColor,
+                          AppTheme.surfaceColor.withOpacity(0.92),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      border: Border.all(
+                        color: glowA.withOpacity(0.22),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: glowA.withOpacity(0.10),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
-                        const Spacer(),
-                        Icon(
-                          Icons.chevron_right,
-                          size: 18,
-                          color: AppTheme.textTertiaryColor,
-                        ),
+                        AppTheme.shadowSmall,
                       ],
                     ),
-                    const SizedBox(height: AppTheme.md),
-                    Text(
-                      feature['title'] as String,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppTheme.lg),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusXL,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Container(
+                                      width: 46,
+                                      height: 46,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          colors: [glowA, glowB],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: glowA.withOpacity(0.22),
+                                            blurRadius: 18,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2.2),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.black.withOpacity(
+                                              0.10,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.18,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            feature['icon'] as IconData,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppTheme.sm,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusCircle,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.14),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.chevron_right,
+                                    size: 18,
+                                    color: AppTheme.textTertiaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppTheme.md),
+                            Text(
+                              feature['title'] as String,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.1,
+                                  ),
+                            ),
+                            const SizedBox(height: AppTheme.xs),
+                            Text(
+                              feature['description'] as String,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(999),
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          glowA.withOpacity(0.55),
+                                          glowB.withOpacity(0.25),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: AppTheme.xs),
-                    Text(
-                      feature['description'] as String,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

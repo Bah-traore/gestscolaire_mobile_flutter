@@ -29,22 +29,95 @@ class AuthService {
     }
   }
 
+  /// Confirmer la réinitialisation du mot de passe (flow email+token)
+  Future<void> confirmResetPasswordEmail({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    await _apiService.post(
+      '/auth/confirm-reset-password-email/',
+      data: {'email': email, 'token': token, 'new_password': newPassword},
+    );
+  }
+
+  Future<void> _saveUser(User user) async {
+    await _prefs.setString(_userKey, jsonEncode(user.toJson()));
+  }
+
+  Future<User?> _tryUpdateUserFromParentPayload(dynamic payload) async {
+    if (payload is! Map) return null;
+    final rawParent = payload['parent'];
+    if (rawParent is! Map) return null;
+
+    final current = currentUser;
+    if (current == null) return null;
+
+    final updated = current.copyWith(
+      name: rawParent['name']?.toString() ?? current.name,
+      email: rawParent['email']?.toString() ?? current.email,
+      phone: rawParent['phone']?.toString() ?? current.phone,
+    );
+    await _saveUser(updated);
+    return updated;
+  }
+
+  /// Changer le mot de passe (parent)
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    await _apiService.post(
+      '/parent/change-password/',
+      data: {
+        'old_password': oldPassword,
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      },
+    );
+  }
+
+  /// Définir un mot de passe (compte sans mot de passe, ex: Google)
+  Future<void> setPassword({
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    await _apiService.post(
+      '/parent/set-password/',
+      data: {'new_password': newPassword, 'confirm_password': confirmPassword},
+    );
+  }
+
+  /// Mettre à jour le téléphone (max 3 fois / année scolaire)
+  /// Retourne la réponse brute pour lire remaining_changes, academic_year, etc.
+  Future<Map<String, dynamic>> updatePhone({required String phone}) async {
+    final resp = await _apiService.post<Map<String, dynamic>>(
+      '/parent/update-phone/',
+      data: {'phone': phone},
+    );
+
+    await _tryUpdateUserFromParentPayload(resp);
+    return resp;
+  }
+
   /// Connexion
   Future<AuthResponse> login({
-    required String email,
+    required String identifier,
     required String password,
     String? tenantId,
   }) async {
     try {
-      final request = LoginRequest(
-        email: email,
-        password: password,
-        tenantId: tenantId,
-      );
+      final trimmed = identifier.trim();
+      final isEmail = trimmed.contains('@');
 
       final response = await _apiService.post<Map<String, dynamic>>(
         '/auth/login/',
-        data: request.toJson(),
+        data: {
+          if (isEmail) 'email': trimmed else 'phone': trimmed,
+          'password': password,
+          if (tenantId != null) 'tenant_id': tenantId,
+        },
       );
 
       final authResponse = AuthResponse.fromJson(response);

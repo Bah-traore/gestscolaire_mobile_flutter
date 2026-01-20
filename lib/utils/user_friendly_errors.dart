@@ -28,8 +28,11 @@ class UserFriendlyErrors {
     }
 
     final status = e.response?.statusCode;
+
+    // 401 sur login = identifiants invalides. La gestion "session expirée" se fait
+    // plutôt côté appels authentifiés (refresh token) via l'interceptor.
     if (status == 401) {
-      return 'Votre session a expiré. Veuillez vous reconnecter.';
+      return 'Email/téléphone ou mot de passe incorrect.';
     }
     if (status == 404) {
       return 'Service indisponible pour le moment. Veuillez réessayer plus tard.';
@@ -41,6 +44,7 @@ class UserFriendlyErrors {
     final data = e.response?.data;
     if (data is Map) {
       final mapped = Map<String, dynamic>.from(data);
+      final reasonCode = mapped['reason_code']?.toString();
       final subscription = mapped['subscription'];
       final raw =
           mapped['error'] ??
@@ -50,6 +54,10 @@ class UserFriendlyErrors {
       final safe = _sanitize(raw?.toString());
       if (safe != null && safe.isNotEmpty) {
         return safe;
+      }
+
+      if (status == 403 && reasonCode == 'CSRF cookie not set.') {
+        return 'Les cookies de sécurité sont bloqués. Activez-les puis réessayez.';
       }
     }
 

@@ -81,7 +81,33 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const SizedBox(height: 20),
 
               // Icône et titre
-              Icon(Icons.lock_reset, size: 80, color: AppTheme.primaryColor),
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.10),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          Icons.lock_reset,
+                          size: 40,
+                          color: AppTheme.primaryColor,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
               Text(
@@ -204,12 +230,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               const SizedBox(height: 32),
 
               // Lien vers connexion
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 0,
                 children: [
                   Text(
                     'Vous vous souvenez de votre mot de passe ?',
                     style: TextStyle(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),

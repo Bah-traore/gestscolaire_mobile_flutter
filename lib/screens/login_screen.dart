@@ -19,7 +19,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -141,13 +141,25 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                      ),
-                      child: const Icon(
-                        Icons.school,
                         color: Colors.white,
-                        size: 40,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.10),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.school,
+                              color: AppTheme.primaryColor,
+                              size: 40,
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppTheme.lg),
@@ -177,11 +189,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Email
-                    EmailField(
-                      controller: _emailController,
-                      label: 'Adresse email',
-                      hint: 'exemple@ecole.com',
+                    // Identifiant (email ou téléphone)
+                    CustomTextField(
+                      controller: _identifierController,
+                      label: 'Email ou téléphone',
+                      hint: 'exemple@gestscolaire.com ou +22370000XX',
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      prefixIcon: Icons.person_outline,
+                      validator: (value) {
+                        final v = value?.trim() ?? '';
+                        if (v.isEmpty) {
+                          return 'Email ou téléphone requis';
+                        }
+
+                        final emailRegex = RegExp(
+                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                        );
+                        final phoneRegex = RegExp(r'^[+]?[0-9]{7,15}$');
+                        final phoneCandidate = v.replaceAll(RegExp(r'\s'), '');
+
+                        if (!emailRegex.hasMatch(v) &&
+                            !phoneRegex.hasMatch(phoneCandidate)) {
+                          return 'Veuillez entrer un email ou un numéro valide';
+                        }
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: AppTheme.lg),
@@ -364,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final success = await authProvider.login(
-      email: _emailController.text.trim(),
+      identifier: _identifierController.text.trim(),
       password: _passwordController.text,
     );
 

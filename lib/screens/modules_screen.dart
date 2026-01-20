@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'dart:ui';
 
 import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
@@ -26,8 +27,15 @@ enum ModuleKind {
 
 class ModulesScreen extends StatefulWidget {
   final ModuleKind kind;
+  final bool includeScaffold;
+  final bool includeTopContextHeader;
 
-  const ModulesScreen({super.key, required this.kind});
+  const ModulesScreen({
+    super.key,
+    required this.kind,
+    this.includeScaffold = true,
+    this.includeTopContextHeader = true,
+  });
 
   @override
   State<ModulesScreen> createState() => _ModulesScreenState();
@@ -52,6 +60,52 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   Timer? _estDebounce;
   Timer? _childDebounce;
+
+  Widget _futuristicCard(
+    Widget child, {
+    EdgeInsetsGeometry padding = const EdgeInsets.all(AppTheme.lg),
+    EdgeInsetsGeometry? margin,
+  }) {
+    final glowA = const Color(0xFF00E676);
+    final glowB = const Color(0xFF00BFA5);
+
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: [
+          BoxShadow(
+            color: glowA.withOpacity(0.10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          AppTheme.shadowSmall,
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.surfaceColor.withOpacity(0.96),
+                  AppTheme.surfaceColor.withOpacity(0.86),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              border: Border.all(color: glowB.withOpacity(0.20), width: 1.1),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
 
   String _formatDate(String? iso) {
     if (iso == null || iso.trim().isEmpty) return '';
@@ -121,14 +175,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
     return ListView(
       padding: const EdgeInsets.all(AppTheme.lg),
       children: [
-        Container(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: Column(
+        _futuristicCard(
+          Column(
             children: [
               Row(
                 children: [
@@ -178,14 +226,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
         ),
         const SizedBox(height: AppTheme.lg),
 
-        InputDecorator(
-          decoration: const InputDecoration(
-            labelText: 'Filtrer par statut',
-            isDense: true,
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          ),
-          child: DropdownButtonHideUnderline(
+        _futuristicCard(
+          DropdownButtonHideUnderline(
             child: DropdownButton<String?>(
               isExpanded: true,
               value: currentStatus,
@@ -205,23 +247,20 @@ class _ModulesScreenState extends State<ModulesScreen> {
               onChanged: _loading
                   ? null
                   : (value) async {
-                      // Recharger avec filtre côté backend via query param status
                       await _reloadWithExtraParams({'status': value});
                     },
             ),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppTheme.lg,
+            vertical: AppTheme.md,
           ),
         ),
         const SizedBox(height: AppTheme.lg),
 
         if (absences.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(AppTheme.lg),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Row(
+          _futuristicCard(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
@@ -1713,21 +1752,9 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: Text(_title),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/dashboard');
-            },
-            child: const Text('Tableau de bord'),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
+    final body = Column(
+      children: [
+        if (widget.includeTopContextHeader)
           Container(
             padding: const EdgeInsets.all(AppTheme.lg),
             decoration: BoxDecoration(
@@ -1736,9 +1763,18 @@ class _ModulesScreenState extends State<ModulesScreen> {
             ),
             child: _buildContextDropdowns(context),
           ),
-          Expanded(child: _buildBody(context)),
-        ],
-      ),
+        Expanded(child: _buildBody(context)),
+      ],
+    );
+
+    if (!widget.includeScaffold) {
+      return body;
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(title: Text(_title)),
+      body: body,
     );
   }
 

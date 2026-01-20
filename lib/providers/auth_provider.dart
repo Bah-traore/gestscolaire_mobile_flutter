@@ -23,6 +23,11 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _isAuthenticated;
 
+  Future<void> _reloadUserFromStorage() async {
+    _currentUser = _authService.currentUser;
+    notifyListeners();
+  }
+
   /// Initialiser le provider
   Future<void> init() async {
     await _authService.init();
@@ -33,7 +38,7 @@ class AuthProvider extends ChangeNotifier {
 
   /// Connexion
   Future<bool> login({
-    required String email,
+    required String identifier,
     required String password,
     String? tenantId,
   }) async {
@@ -43,7 +48,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final response = await _authService.login(
-        email: email,
+        identifier: identifier,
         password: password,
         tenantId: tenantId,
       );
@@ -59,6 +64,33 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
+      return false;
+    }
+  }
+
+  Future<bool> confirmResetPasswordEmail({
+    required String email,
+    required String token,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.confirmResetPasswordEmail(
+        email: email,
+        token: token,
+        newPassword: newPassword,
+      );
+
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = UserFriendlyErrors.from(e);
+      _isLoading = false;
+      notifyListeners();
       return false;
     }
   }
@@ -220,5 +252,74 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> updatePhone({required String phone}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final resp = await _authService.updatePhone(phone: phone);
+      await _reloadUserFromStorage();
+      _isLoading = false;
+      notifyListeners();
+      return resp;
+    } catch (e) {
+      _error = UserFriendlyErrors.from(e);
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = UserFriendlyErrors.from(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> setPassword({
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _authService.setPassword(
+        newPassword: newPassword,
+        confirmPassword: confirmPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = UserFriendlyErrors.from(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 }

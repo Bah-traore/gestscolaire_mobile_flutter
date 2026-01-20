@@ -1,7 +1,7 @@
 /// Constantes de l'application
 class AppConstants {
   // Messages
-  static const String appName = 'GestEcole';
+  static const String appName = 'GestScolaire';
   static const String appVersion = '1.0.0';
   
   // Erreurs

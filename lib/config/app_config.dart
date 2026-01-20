@@ -1,10 +1,10 @@
 /// Configuration centralisée de l'application
 class AppConfig {
   // API Configuration
-  static const String apiBaseUrl = 'http://192.168.1.13:8000/api/';
+  static const String apiBaseUrl = 'https://apps.gestscolaire.com/api/';
 
   // App Info
-  static const String appName = 'GestEcole';
+  static const String appName = 'GestScolaire';
   static const String appVersion = '1.0.0';
   static const String appBuildNumber = '1';
 

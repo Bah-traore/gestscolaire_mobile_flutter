@@ -20,7 +20,9 @@ import 'dart:async';
 enum TimetableViewMode { week, list, agenda }
 
 class TimetableScreen extends StatefulWidget {
-  const TimetableScreen({super.key});
+  final bool includeScaffold;
+
+  const TimetableScreen({super.key, this.includeScaffold = true});
 
   @override
   State<TimetableScreen> createState() => _TimetableScreenState();
@@ -584,17 +586,22 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = Column(
+      children: [
+        _buildHeader(context),
+        Expanded(child: _buildBody(context)),
+      ],
+    );
+
+    if (!widget.includeScaffold) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('Emploi du temps'),
         actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pushReplacementNamed('/dashboard');
-            },
-            child: const Text('Changer d\'école'),
-          ),
           IconButton(
             tooltip: _mode == TimetableViewMode.week
                 ? 'Liste'
@@ -618,12 +625,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(child: _buildBody(context)),
-        ],
-      ),
+      body: body,
     );
   }
 

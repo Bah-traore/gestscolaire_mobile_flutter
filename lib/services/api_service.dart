@@ -30,7 +30,7 @@ class ApiService {
         contentType: 'application/json',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'GestEcole Mobile/1.0',
+          'User-Agent': 'GestScolaire Mobile/1.0',
         },
       ),
     );

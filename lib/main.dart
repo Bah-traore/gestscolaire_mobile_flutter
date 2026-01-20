@@ -8,12 +8,16 @@ import 'config/app_config.dart';
 import 'config/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/parent_context_provider.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/modules_screen.dart';
-import 'screens/timetable_screen.dart';
+import 'screens/main_shell.dart';
+import 'screens/parent_profile_screen.dart';
+import 'screens/select_child_screen.dart';
+import 'screens/select_establishment_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
+import 'package:app_links/app_links.dart';
+import 'screens/auth/reset_password_screen.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +41,9 @@ class MyApp extends StatelessWidget {
   final ApiService apiService;
   final AuthService authService;
 
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   const MyApp({Key? key, required this.apiService, required this.authService})
     : super(key: key);
 
@@ -50,6 +57,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ParentContextProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: AppConfig.appName,
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),
@@ -62,21 +70,56 @@ class MyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         home: const AppRouter(),
+        onGenerateRoute: (settings) {
+          if (settings.name == '/reset-password') {
+            final args = settings.arguments;
+            if (args is Map<String, String>) {
+              final email = args['email'];
+              final token = args['token'];
+              if (email != null && token != null) {
+                return MaterialPageRoute(
+                  builder: (_) =>
+                      ResetPasswordScreen(email: email, token: token),
+                );
+              }
+            }
+          }
+          return null;
+        },
         routes: {
           '/login': (context) => const LoginScreen(),
-          '/dashboard': (context) => const DashboardScreen(),
-          '/timetable': (context) => const TimetableScreen(),
-          '/notes': (context) => const ModulesScreen(kind: ModuleKind.notes),
-          '/homework': (context) =>
-              const ModulesScreen(kind: ModuleKind.homework),
-          '/bulletins': (context) =>
-              const ModulesScreen(kind: ModuleKind.bulletins),
-          '/notifications': (context) =>
-              const ModulesScreen(kind: ModuleKind.notifications),
-          '/scolarites': (context) =>
-              const ModulesScreen(kind: ModuleKind.scolarites),
-          '/absences': (context) =>
-              const ModulesScreen(kind: ModuleKind.absences),
+          '/dashboard': (context) =>
+              const MainShell(initialTab: ShellTab.dashboard),
+          '/timetable': (context) =>
+              const MainShell(initialTab: ShellTab.timetable),
+          '/profile': (context) => const ParentProfileScreen(),
+          '/notes': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.notes,
+          ),
+          '/homework': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.homework,
+          ),
+          '/bulletins': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.bulletins,
+          ),
+          '/notifications': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.notifications,
+          ),
+          '/scolarites': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.scolarites,
+          ),
+          '/absences': (context) => const MainShell(
+            initialTab: ShellTab.modules,
+            initialModule: ShellModuleKind.absences,
+          ),
+          '/select-establishment': (context) =>
+              const SelectEstablishmentScreen(),
+          '/select-child': (context) => const SelectChildScreen(),
         },
         debugShowCheckedModeBanner: false,
       ),
@@ -94,12 +137,52 @@ class AppRouter extends StatefulWidget {
 
 class _AppRouterState extends State<AppRouter> {
   late Future<void> _initFuture;
+  final _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
 
   @override
   void initState() {
     super.initState();
     // Initialiser une seule fois au démarrage
     _initFuture = context.read<AuthProvider>().init();
+
+    _handleInitialLink();
+    _linkSub = _appLinks.uriLinkStream.listen(_handleIncomingLink);
+  }
+
+  Future<void> _handleInitialLink() async {
+    try {
+      final uri = await _appLinks.getInitialLink();
+      if (uri != null) {
+        _handleIncomingLink(uri);
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  void _handleIncomingLink(Uri uri) {
+    if (uri.scheme != 'gestscolaire') return;
+    if (uri.host != 'reset-password') return;
+
+    final email = uri.queryParameters['email'];
+    final token = uri.queryParameters['token'];
+    if (email == null || email.isEmpty || token == null || token.isEmpty) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MyApp.navigatorKey.currentState?.pushNamed(
+        '/reset-password',
+        arguments: {'email': email, 'token': token},
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
   }
 
   @override
@@ -117,7 +200,7 @@ class _AppRouterState extends State<AppRouter> {
           builder: (context, authProvider, _) {
             if (authProvider.isAuthenticated &&
                 authProvider.currentUser != null) {
-              return const DashboardScreen();
+              return const MainShell(initialTab: ShellTab.dashboard);
             }
             return const LoginScreen();
           },
@@ -140,6 +223,10 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+
+  static const Color _bgGreenDark = Color(0xFF001A12);
+  static const Color _bgGreen = Color(0xFF00C853);
+  static const Color _bgGreenGlow = Color(0xFF00E676);
 
   @override
   void initState() {
@@ -170,47 +257,72 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                    boxShadow: const [AppTheme.shadowLarge],
+      backgroundColor: _bgGreenDark,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(0, -0.2),
+            radius: 1.05,
+            colors: [_bgGreenGlow, _bgGreen, _bgGreenDark],
+            stops: [0.0, 0.35, 1.0],
+          ),
+        ),
+        child: Center(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x8800E676),
+                          blurRadius: 28,
+                          spreadRadius: 6,
+                          offset: Offset(0, 0),
+                        ),
+                        BoxShadow(
+                          color: Color(0x6600C853),
+                          blurRadius: 60,
+                          spreadRadius: 10,
+                          offset: Offset(0, 0),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.school,
+                      color: Colors.white,
+                      size: 50,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.school,
-                    color: Colors.white,
-                    size: 50,
+                  const SizedBox(height: AppTheme.xl),
+                  Text(
+                    AppConfig.appName,
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppTheme.xl),
-                Text(
-                  AppConfig.appName,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    color: AppTheme.textPrimaryColor,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: AppTheme.md),
+                  Text(
+                    'Gestion scolaire simplifiée',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppTheme.md),
-                Text(
-                  'Gestion scolaire simplifiée',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.xxxl),
-                const CircularProgressIndicator(color: AppTheme.primaryColor),
-              ],
+                  const SizedBox(height: AppTheme.xxxl),
+                  const CircularProgressIndicator(color: Colors.white),
+                ],
+              ),
             ),
           ),
         ),
