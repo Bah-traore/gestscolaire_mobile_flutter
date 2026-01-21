@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'config/app_config.dart';
@@ -19,6 +21,61 @@ import 'package:app_links/app_links.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'dart:async';
 
+const AndroidNotificationChannel _defaultAndroidChannel =
+    AndroidNotificationChannel(
+      'gestscolaire_default',
+      'Notifications',
+      description: 'Notifications de l\'application',
+      importance: Importance.high,
+    );
+
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
+
+Future<void> _initLocalNotifications() async {
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initSettings = InitializationSettings(android: androidSettings);
+
+  await _localNotifications.initialize(initSettings);
+
+  final android = _localNotifications
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
+  if (android != null) {
+    await android.createNotificationChannel(_defaultAndroidChannel);
+  }
+}
+
+Future<void> _showLocalNotification(RemoteMessage message) async {
+  final notification = message.notification;
+  final android = notification?.android;
+
+  if (notification == null) return;
+
+  final details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _defaultAndroidChannel.id,
+      _defaultAndroidChannel.name,
+      channelDescription: _defaultAndroidChannel.description,
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: android?.smallIcon,
+    ),
+  );
+
+  await _localNotifications.show(
+    DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    notification.title,
+    notification.body,
+    details,
+  );
+}
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,11 +85,53 @@ void main() async {
   // Initialiser Firebase
   await Firebase.initializeApp();
 
+  // Notifications locales (pour afficher les notifs quand l'app est au premier plan)
+  await _initLocalNotifications();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Afficher une notification locale quand un message arrive en foreground
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+    try {
+      await _showLocalNotification(message);
+    } catch (_) {
+      // ignore
+    }
+  });
+
   // Initialiser les services
   final apiService = ApiService();
   final authService = AuthService(apiService);
   apiService.attachAuthService(authService);
   await authService.init();
+
+  // Initialiser FCM (best-effort)
+  try {
+    final messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
+
+    final token = await messaging.getToken();
+    if (token != null && token.isNotEmpty) {
+      await apiService.post(
+        '/parent/fcm/register/',
+        data: {'token': token, 'platform': 'flutter'},
+      );
+    }
+
+    messaging.onTokenRefresh.listen((newToken) async {
+      if (newToken.isEmpty) return;
+      try {
+        await apiService.post(
+          '/parent/fcm/register/',
+          data: {'token': newToken, 'platform': 'flutter'},
+        );
+      } catch (_) {
+        // ignore
+      }
+    });
+  } catch (_) {
+    // ignore
+  }
 
   runApp(MyApp(apiService: apiService, authService: authService));
 }

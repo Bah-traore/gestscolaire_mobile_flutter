@@ -4,6 +4,7 @@ import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../utils/user_friendly_errors.dart';
+import '../utils/extensions.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import 'auth/forgot_password_screen.dart';
@@ -106,11 +107,10 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.of(context).pushReplacementNamed('/dashboard');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(UserFriendlyErrors.from(e)),
-          backgroundColor: Colors.red,
-        ),
+      context.showSnackBar(
+        UserFriendlyErrors.from(e),
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
       );
     } finally {
       if (mounted) {
@@ -123,264 +123,288 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth >= 600 ? AppTheme.xxl : AppTheme.lg;
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppTheme.xxxl),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: AppTheme.lg,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppTheme.xxxl),
 
-              // Logo et titre
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                        border: Border.all(
-                          color: AppTheme.primaryColor.withOpacity(0.10),
+                  // Logo et titre
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusXL,
+                            ),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.10),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.school,
+                                  color: AppTheme.primaryColor,
+                                  size: 40,
+                                );
+                              },
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              Icons.school,
-                              color: AppTheme.primaryColor,
-                              size: 40,
+                        const SizedBox(height: AppTheme.lg),
+                        Text(
+                          'GestScolaire',
+                          style: Theme.of(context).textTheme.displaySmall
+                              ?.copyWith(
+                                color: AppTheme.textPrimaryColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        const SizedBox(height: AppTheme.sm),
+                        Text(
+                          'Gestion scolaire simplifiée',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppTheme.xxxl),
+
+                  // Formulaire
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Identifiant (email ou téléphone)
+                        CustomTextField(
+                          controller: _identifierController,
+                          label: 'Email ou téléphone',
+                          hint: 'exemple@gestscolaire.com ou +22370000XX',
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          prefixIcon: Icons.person_outline,
+                          validator: (value) {
+                            final v = value?.trim() ?? '';
+                            if (v.isEmpty) {
+                              return 'Email ou téléphone requis';
+                            }
+
+                            final emailRegex = RegExp(
+                              r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                            );
+                            final phoneRegex = RegExp(r'^[+]?[0-9]{7,15}$');
+                            final phoneCandidate = v.replaceAll(
+                              RegExp(r'\s'),
+                              '',
+                            );
+
+                            if (!emailRegex.hasMatch(v) &&
+                                !phoneRegex.hasMatch(phoneCandidate)) {
+                              return 'Veuillez entrer un email ou un numéro valide';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        const SizedBox(height: AppTheme.lg),
+
+                        // Mot de passe
+                        PasswordField(
+                          controller: _passwordController,
+                          label: 'Mot de passe',
+                          hint: 'Entrez votre mot de passe',
+                        ),
+
+                        const SizedBox(height: AppTheme.md),
+
+                        // Lien "Mot de passe oublié"
+                        // Align(
+                        //   alignment: Alignment.centerRight,
+                        //   child: TextButton(
+                        //     onPressed: () {
+                        //       // TODO: Naviguer vers l'écran de réinitialisation
+                        //     },
+                        //     child: Text(
+                        //       'Mot de passe oublié?',
+                        //       style: Theme.of(context).textTheme.bodyMedium
+                        //           ?.copyWith(
+                        //             color: AppTheme.primaryColor,
+                        //             fontWeight: FontWeight.w600,
+                        //           ),
+                        //     ),
+                        //   ),
+                        // ),
+
+                        // const SizedBox(height: AppTheme.xl),
+
+                        // Bouton de connexion
+                        Consumer<AuthProvider>(
+                          builder: (context, authProvider, _) {
+                            return CustomButton(
+                              label: 'Se connecter',
+                              isLoading: authProvider.isLoading,
+                              onPressed: () =>
+                                  _handleLogin(context, authProvider),
                             );
                           },
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.lg),
-                    Text(
-                      'GestScolaire',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: AppTheme.textPrimaryColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.sm),
-                    Text(
-                      'Gestion scolaire simplifiée',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
-              const SizedBox(height: AppTheme.xxxl),
+                        const SizedBox(height: AppTheme.lg),
 
-              // Formulaire
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Identifiant (email ou téléphone)
-                    CustomTextField(
-                      controller: _identifierController,
-                      label: 'Email ou téléphone',
-                      hint: 'exemple@gestscolaire.com ou +22370000XX',
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      prefixIcon: Icons.person_outline,
-                      validator: (value) {
-                        final v = value?.trim() ?? '';
-                        if (v.isEmpty) {
-                          return 'Email ou téléphone requis';
-                        }
-
-                        final emailRegex = RegExp(
-                          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-                        );
-                        final phoneRegex = RegExp(r'^[+]?[0-9]{7,15}$');
-                        final phoneCandidate = v.replaceAll(RegExp(r'\s'), '');
-
-                        if (!emailRegex.hasMatch(v) &&
-                            !phoneRegex.hasMatch(phoneCandidate)) {
-                          return 'Veuillez entrer un email ou un numéro valide';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: AppTheme.lg),
-
-                    // Mot de passe
-                    PasswordField(
-                      controller: _passwordController,
-                      label: 'Mot de passe',
-                      hint: 'Entrez votre mot de passe',
-                    ),
-
-                    const SizedBox(height: AppTheme.md),
-
-                    // Lien "Mot de passe oublié"
-                    // Align(
-                    //   alignment: Alignment.centerRight,
-                    //   child: TextButton(
-                    //     onPressed: () {
-                    //       // TODO: Naviguer vers l'écran de réinitialisation
-                    //     },
-                    //     child: Text(
-                    //       'Mot de passe oublié?',
-                    //       style: Theme.of(context).textTheme.bodyMedium
-                    //           ?.copyWith(
-                    //             color: AppTheme.primaryColor,
-                    //             fontWeight: FontWeight.w600,
-                    //           ),
-                    //     ),
-                    //   ),
-                    // ),
-
-                    // const SizedBox(height: AppTheme.xl),
-
-                    // Bouton de connexion
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, _) {
-                        return CustomButton(
-                          label: 'Se connecter',
-                          isLoading: authProvider.isLoading,
-                          onPressed: () => _handleLogin(context, authProvider),
-                        );
-                      },
-                    ),
-
-                    const SizedBox(height: AppTheme.lg),
-
-                    // Message d'erreur
-                    Consumer<AuthProvider>(
-                      builder: (context, authProvider, _) {
-                        if (authProvider.error != null) {
-                          return Container(
-                            padding: const EdgeInsets.all(AppTheme.md),
-                            decoration: BoxDecoration(
-                              color: AppTheme.errorColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(
-                                AppTheme.radiusMedium,
-                              ),
-                              border: Border.all(
-                                color: AppTheme.errorColor.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: AppTheme.errorColor,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: AppTheme.md),
-                                Expanded(
-                                  child: Text(
-                                    authProvider.error!,
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(color: AppTheme.errorColor),
+                        // Message d'erreur
+                        Consumer<AuthProvider>(
+                          builder: (context, authProvider, _) {
+                            if (authProvider.error != null) {
+                              return Container(
+                                padding: const EdgeInsets.all(AppTheme.md),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusMedium,
+                                  ),
+                                  border: Border.all(
+                                    color: AppTheme.errorColor.withOpacity(0.3),
                                   ),
                                 ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      color: AppTheme.errorColor,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: AppTheme.md),
+                                    Expanded(
+                                      child: Text(
+                                        authProvider.error!,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppTheme.errorColor,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: AppTheme.xxxl),
-
-              // Bouton de connexion Google
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading
-                      ? null
-                      : () => _handleGoogleSignIn(context),
-                  icon: const Icon(Icons.g_mobiledata, size: 20),
-                  label: const Text(
-                    'Se connecter avec Google',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    foregroundColor: Colors.black87,
-                    backgroundColor: Colors.white,
-                  ),
-                ),
-              ),
 
-              const SizedBox(height: AppTheme.xxxl),
+                  const SizedBox(height: AppTheme.xxxl),
 
-              // Lien mot de passe oublié
-              Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ForgotPasswordScreen(),
+                  // Bouton de connexion Google
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading
+                          ? null
+                          : () => _handleGoogleSignIn(context),
+                      icon: const Icon(Icons.g_mobiledata, size: 20),
+                      label: const Text(
+                        'Se connecter avec Google',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    );
-                  },
-                  child: Text(
-                    'Mot de passe oublié?',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        foregroundColor: Colors.black87,
+                        backgroundColor: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: AppTheme.md),
+                  const SizedBox(height: AppTheme.xxxl),
 
-              // Lien d'inscription
-              Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Pas encore de compte? ',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    TextButton(
+                  // Lien mot de passe oublié
+                  Center(
+                    child: TextButton(
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => const RegisterScreen(),
+                            builder: (context) => const ForgotPasswordScreen(),
                           ),
                         );
                       },
                       child: Text(
-                        'S\'inscrire',
+                        'Mot de passe oublié?',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: AppTheme.md),
+
+                  // Lien d'inscription
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Pas encore de compte? ',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'S\'inscrire',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

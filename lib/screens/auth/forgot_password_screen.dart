@@ -65,6 +65,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = screenWidth >= 600 ? AppTheme.xxl : 24.0;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mot de passe oublié'),
@@ -73,187 +75,195 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         elevation: 0,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 24.0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
 
-              // Icône et titre
-              Center(
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.10),
+                  // Icône et titre
+                  Center(
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.10),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.lock_reset,
+                              size: 40,
+                              color: AppTheme.primaryColor,
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.lock_reset,
-                          size: 40,
-                          color: AppTheme.primaryColor,
-                        );
-                      },
+                  const SizedBox(height: 24),
+
+                  Text(
+                    'Réinitialiser le mot de passe',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text(
+                    'Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+
+                  // Messages
+                  if (_errorMessage != null) ...[
+                    custom.ErrorWidget(
+                      message: _errorMessage!,
+                      onRetry: () => setState(() => _errorMessage = null),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (_successMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green[200]!),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green[600]),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _successMessage!,
+                              style: TextStyle(
+                                color: Colors.green[800],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Formulaire
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // Champ email
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Adresse email',
+                            hintText: 'exemple@email.com',
+                            prefixIcon: const Icon(Icons.email),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'L\'adresse email est requise';
+                            }
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value.trim())) {
+                              return 'Veuillez entrer une adresse email valide';
+                            }
+                            return null;
+                          },
+                          enabled: !_isLoading,
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Bouton de réinitialisation
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _resetPassword,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: _isLoading
+                                ? const LoadingWidget()
+                                : const Text(
+                                    'Réinitialiser le mot de passe',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 32),
 
-              Text(
-                'Réinitialiser le mot de passe',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-
-              Text(
-                'Entrez votre adresse email et nous vous enverrons un lien pour réinitialiser votre mot de passe',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-
-              // Messages
-              if (_errorMessage != null) ...[
-                custom.ErrorWidget(
-                  message: _errorMessage!,
-                  onRetry: () => setState(() => _errorMessage = null),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              if (_successMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green[200]!),
-                  ),
-                  child: Row(
+                  // Lien vers connexion
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 0,
                     children: [
-                      Icon(Icons.check_circle, color: Colors.green[600]),
-                      const SizedBox(width: 12),
-                      Expanded(
+                      Text(
+                        'Vous vous souvenez de votre mot de passe ?',
+                        style: TextStyle(color: Colors.grey[600]),
+                        textAlign: TextAlign.center,
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
                         child: Text(
-                          _successMessage!,
+                          'Se connecter',
                           style: TextStyle(
-                            color: Colors.green[800],
-                            fontWeight: FontWeight.w500,
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Formulaire
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Champ email
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: 'Adresse email',
-                        hintText: 'exemple@email.com',
-                        prefixIcon: const Icon(Icons.email),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'L\'adresse email est requise';
-                        }
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(value.trim())) {
-                          return 'Veuillez entrer une adresse email valide';
-                        }
-                        return null;
-                      },
-                      enabled: !_isLoading,
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Bouton de réinitialisation
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _resetPassword,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: _isLoading
-                            ? const LoadingWidget()
-                            : const Text(
-                                'Réinitialiser le mot de passe',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Lien vers connexion
-              Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 6,
-                runSpacing: 0,
-                children: [
-                  Text(
-                    'Vous vous souvenez de votre mot de passe ?',
-                    style: TextStyle(color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Se connecter',
-                      style: TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -29,9 +29,16 @@ class UserFriendlyErrors {
 
     final status = e.response?.statusCode;
 
+    final path = e.requestOptions.path;
+    final isGoogleAuth =
+        path == '/auth/google/' || path.endsWith('/auth/google/');
+
     // 401 sur login = identifiants invalides. La gestion "session expirée" se fait
     // plutôt côté appels authentifiés (refresh token) via l'interceptor.
     if (status == 401) {
+      if (isGoogleAuth) {
+        return 'Erreur technique. Veuillez signaler aux administrateurs de l\'application pour corriger à temps : +22394306302';
+      }
       return 'Email/téléphone ou mot de passe incorrect.';
     }
     if (status == 404) {
