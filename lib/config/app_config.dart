@@ -1,7 +1,7 @@
 /// Configuration centralisée de l'application
 class AppConfig {
   // API Configuration
-  static const String apiBaseUrl = 'http://10.0.2.2:8000/api/';
+  static const String apiBaseUrl = 'https://apps.gestscolaire.com/api/';
 
   // App Info
   static const String appName = 'GestScolaire';
