@@ -29,6 +29,12 @@ class UserFriendlyErrors {
 
     final status = e.response?.statusCode;
 
+    final data = e.response?.data;
+    final Map<String, dynamic>? mapped = data is Map
+        ? Map<String, dynamic>.from(data)
+        : null;
+    final raw = mapped?['error'] ?? mapped?['message'] ?? mapped?['detail'];
+
     final path = e.requestOptions.path;
     final isGoogleAuth =
         path == '/auth/google/' || path.endsWith('/auth/google/');
@@ -37,28 +43,69 @@ class UserFriendlyErrors {
     // plutôt côté appels authentifiés (refresh token) via l'interceptor.
     if (status == 401) {
       if (isGoogleAuth) {
-        return 'Erreur technique. Veuillez signaler aux administrateurs de l\'application pour corriger à temps : +22394306302';
+        final data = e.response?.data;
+        if (data is Map) {
+          final mapped = Map<String, dynamic>.from(data);
+          final errorCode = mapped['error_code']?.toString();
+          final authReason = (mapped['details'] is Map)
+              ? (mapped['details']['auth_reason']?.toString())
+              : null;
+
+          // Messages orientés utilisateur pour les cas fréquents en Google Auth.
+          if (authReason == 'OAUTH_CONFIG_MISSING') {
+            return 'Connexion Google indisponible pour le moment. Veuillez réessayer plus tard.';
+          }
+          if (authReason == 'TOKEN_EXPIRED') {
+            return 'Votre session Google a expiré. Veuillez réessayer.';
+          }
+          if (authReason == 'TOKEN_INVALID') {
+            return 'Impossible de vérifier votre connexion Google. Veuillez réessayer.';
+          }
+
+          // Fallback sur message backend s'il est déjà "safe".
+          final raw = mapped['error'] ?? mapped['message'] ?? mapped['detail'];
+          final safe = _sanitize(raw?.toString());
+          if (safe != null && safe.isNotEmpty) {
+            return safe;
+          }
+
+          // Cas 401 générique mais identifié.
+          if (errorCode == 'AUTHENTICATION_ERROR') {
+            return 'Échec de la connexion Google. Veuillez réessayer.';
+          }
+        }
+
+        return 'Échec de la connexion Google. Veuillez réessayer.';
       }
+
+      final data = e.response?.data;
+      if (data is Map) {
+        final mapped = Map<String, dynamic>.from(data);
+        final errorCode = mapped['error_code']?.toString();
+        if (errorCode == 'ACCOUNT_INACTIVE') {
+          return 'Votre compte n\'est pas encore activé. Vérifiez votre email puis réessayez.';
+        }
+      }
+
       return 'Email/téléphone ou mot de passe incorrect.';
     }
     if (status == 404) {
+      final safe = _sanitize(raw?.toString());
+      if (safe != null && safe.isNotEmpty) {
+        return safe;
+      }
       return 'Service indisponible pour le moment. Veuillez réessayer plus tard.';
     }
     if (status != null && status >= 500) {
       return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
     }
 
-    final data = e.response?.data;
-    if (data is Map) {
-      final mapped = Map<String, dynamic>.from(data);
+    if (mapped != null) {
       final reasonCode = mapped['reason_code']?.toString();
       final subscription = mapped['subscription'];
-      final raw =
-          mapped['error'] ??
-          mapped['message'] ??
-          mapped['detail'] ??
-          (subscription is Map ? subscription['message'] : null);
-      final safe = _sanitize(raw?.toString());
+      final rawWithSubscription =
+          raw ?? (subscription is Map ? subscription['message'] : null);
+      final safe = _sanitize(rawWithSubscription?.toString());
       if (safe != null && safe.isNotEmpty) {
         return safe;
       }

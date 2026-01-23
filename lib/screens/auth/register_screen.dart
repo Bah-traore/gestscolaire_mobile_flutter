@@ -5,6 +5,7 @@ import '../../widgets/loading_widget.dart';
 import '../../widgets/error_widget.dart' as custom;
 import '../../config/app_theme.dart';
 import '../../utils/user_friendly_errors.dart';
+import 'email_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -60,17 +61,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phone: _phoneController.text.trim(),
       );
 
-      setState(() {
-        _successMessage =
-            'Inscription réussie! Vous pouvez maintenant vous connecter.';
-      });
-
-      // Retour à l'écran de login après 2 secondes
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-      });
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => EmailVerificationScreen(
+            email: _emailController.text.trim(),
+          ),
+        ),
+      );
     } catch (e) {
       setState(() {
         _errorMessage = UserFriendlyErrors.from(e);

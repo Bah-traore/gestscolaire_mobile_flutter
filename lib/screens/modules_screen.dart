@@ -1796,6 +1796,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
       body = _buildHomeworkBody(context);
     } else if (widget.kind == ModuleKind.bulletins) {
       body = _buildBulletinsBody(context);
+    } else if (widget.kind == ModuleKind.notifications) {
+      body = _buildNotificationsBody(context);
     } else if (widget.kind == ModuleKind.scolarites) {
       body = _buildScolaritesBody(context);
     } else if (widget.kind == ModuleKind.absences) {
@@ -2014,6 +2016,129 @@ class _ModulesScreenState extends State<ModulesScreen> {
         section('En retard', overdue, overdueCount),
         section('Terminés', completed, completedCount),
       ],
+    );
+  }
+
+  Widget _buildNotificationsBody(BuildContext context) {
+    final raw = _data?['notifications'];
+    final notifications = (raw is List)
+        ? raw
+              .whereType<Map>()
+              .map((e) {
+                return e.map((k, v) => MapEntry(k.toString(), v));
+              })
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+
+    if (notifications.isEmpty) {
+      return Center(
+        child: Text(
+          'Aucune notification.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        AppTheme.lg,
+        AppTheme.lg,
+        AppTheme.lg,
+        AppTheme.lg + 84 + bottomInset,
+      ),
+      children: notifications
+          .map((n) {
+            final title = n['title']?.toString() ?? '';
+            final message = n['message']?.toString() ?? '';
+            final type = n['type']?.toString() ?? '';
+            final isRead = n['is_read'] == true;
+            final date = _formatDate(n['created_at']?.toString());
+
+            final student = (n['student'] is Map)
+                ? Map<String, dynamic>.from(n['student'] as Map)
+                : const <String, dynamic>{};
+            final studentLabel = [
+              if ((student['prenom'] ?? '').toString().trim().isNotEmpty)
+                student['prenom'].toString().trim(),
+              if ((student['nom'] ?? '').toString().trim().isNotEmpty)
+                student['nom'].toString().trim(),
+            ].join(' ');
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: AppTheme.md),
+              padding: const EdgeInsets.all(AppTheme.lg),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                border: Border.all(
+                  color: isRead
+                      ? AppTheme.borderColor
+                      : AppTheme.primaryColor.withOpacity(0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      color:
+                          (isRead
+                                  ? AppTheme.textTertiaryColor
+                                  : AppTheme.primaryColor)
+                              .withOpacity(0.12),
+                    ),
+                    child: Icon(
+                      isRead ? Icons.notifications_none : Icons.notifications,
+                      color: isRead
+                          ? AppTheme.textTertiaryColor
+                          : AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: AppTheme.lg),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (title.isNotEmpty)
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.w800,
+                                ),
+                          ),
+                        if (message.isNotEmpty) ...[
+                          const SizedBox(height: AppTheme.sm),
+                          Text(
+                            message,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                        const SizedBox(height: AppTheme.sm),
+                        Text(
+                          [
+                            if (type.isNotEmpty) type,
+                            if (studentLabel.isNotEmpty) studentLabel,
+                            if (date.isNotEmpty) date,
+                          ].join(' • '),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 

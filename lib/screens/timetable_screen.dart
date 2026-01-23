@@ -50,6 +50,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
   List<Map<String, dynamic>> _availableChildren = const [];
   bool _loadingSelector = false;
 
+  void _cycleMode() {
+    setState(() {
+      _mode = _mode == TimetableViewMode.week
+          ? TimetableViewMode.list
+          : (_mode == TimetableViewMode.list
+                ? TimetableViewMode.agenda
+                : TimetableViewMode.week);
+    });
+  }
+
   static DateTime _startOfWeek(DateTime d) {
     final date = DateTime(d.year, d.month, d.day);
     return date.subtract(Duration(days: date.weekday - DateTime.monday));
@@ -606,15 +616,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             tooltip: _mode == TimetableViewMode.week
                 ? 'Liste'
                 : (_mode == TimetableViewMode.list ? 'Agenda' : 'Semaine'),
-            onPressed: () {
-              setState(() {
-                _mode = _mode == TimetableViewMode.week
-                    ? TimetableViewMode.list
-                    : (_mode == TimetableViewMode.list
-                          ? TimetableViewMode.agenda
-                          : TimetableViewMode.week);
-              });
-            },
+            onPressed: _cycleMode,
             icon: Icon(
               _mode == TimetableViewMode.week
                   ? Icons.list
@@ -633,6 +635,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final rangeLabel =
         '${_weekStart.day}/${_weekStart.month} - ${_weekEnd.day}/${_weekEnd.month}';
 
+    final modeTooltip = _mode == TimetableViewMode.week
+        ? 'Liste'
+        : (_mode == TimetableViewMode.list ? 'Agenda' : 'Semaine');
+    final modeIcon = _mode == TimetableViewMode.week
+        ? Icons.list
+        : (_mode == TimetableViewMode.list
+              ? Icons.view_agenda
+              : Icons.view_week);
+
     return Container(
       padding: const EdgeInsets.all(AppTheme.lg),
       decoration: BoxDecoration(
@@ -645,21 +656,37 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const SizedBox(height: AppTheme.md),
           Row(
             children: [
-              IconButton(
-                onPressed: _loading ? null : _previousWeek,
-                icon: const Icon(Icons.chevron_left),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    rangeLabel,
-                    style: Theme.of(context).textTheme.titleMedium,
+              if (_mode != TimetableViewMode.agenda) ...[
+                IconButton(
+                  onPressed: _loading ? null : _previousWeek,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      rangeLabel,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                   ),
                 ),
-              ),
+                IconButton(
+                  onPressed: _loading ? null : _nextWeek,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ] else ...[
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'Agenda',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+              ],
               IconButton(
-                onPressed: _loading ? null : _nextWeek,
-                icon: const Icon(Icons.chevron_right),
+                tooltip: modeTooltip,
+                onPressed: _cycleMode,
+                icon: Icon(modeIcon),
               ),
             ],
           ),

@@ -27,6 +27,17 @@ class AuthService {
     if (token != null) {
       _apiService.setAuthToken(token);
     }
+
+    // Compat: certaines versions sauvegardaient le refresh token sous une autre clé.
+    // Si on ne le charge pas, le refresh automatique (interceptor) ne peut pas
+    // fonctionner et on tombe sur "session expirée".
+    final existingRefresh = _prefs.getString(_refreshTokenKey);
+    if (existingRefresh == null || existingRefresh.isEmpty) {
+      final altRefresh = _prefs.getString('auth_refresh_token');
+      if (altRefresh != null && altRefresh.isNotEmpty) {
+        await _prefs.setString(_refreshTokenKey, altRefresh);
+      }
+    }
   }
 
   /// Confirmer la réinitialisation du mot de passe (flow email+token)

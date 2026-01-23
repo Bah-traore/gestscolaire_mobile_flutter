@@ -201,10 +201,18 @@ extension BuildContextExtension on BuildContext {
   }) {
     final width = MediaQuery.of(this).size.width;
     final bool isTablet = width >= 600;
-    ScaffoldMessenger.of(this).showSnackBar(
+
+    final messenger = ScaffoldMessenger.of(this);
+    messenger.clearSnackBars();
+
+    final bg = backgroundColor ?? Colors.black87;
+    final bool isDarkBg = bg.computeLuminance() < 0.5;
+    final fg = isDarkBg ? Colors.white : Colors.black87;
+
+    messenger.showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: backgroundColor,
+        backgroundColor: bg,
         margin: EdgeInsets.symmetric(
           horizontal: isTablet ? (width - 520) / 2 : 16,
           vertical: 12,
@@ -213,7 +221,7 @@ extension BuildContextExtension on BuildContext {
         content: Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, color: Colors.white),
+              Icon(icon, color: fg),
               const SizedBox(width: 12),
             ],
             Expanded(
@@ -221,6 +229,7 @@ extension BuildContextExtension on BuildContext {
                 message,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: fg),
               ),
             ),
           ],
