@@ -27,7 +27,7 @@ class CustomTextField extends StatefulWidget {
   final bool enabled;
   final int? maxLength;
   final bool showCounter;
-  
+
   const CustomTextField({
     Key? key,
     this.label,
@@ -58,30 +58,40 @@ class CustomTextField extends StatefulWidget {
     this.maxLength,
     this.showCounter = false,
   }) : super(key: key);
-  
+
   @override
   State<CustomTextField> createState() => _CustomTextFieldState();
 }
 
 class _CustomTextFieldState extends State<CustomTextField> {
   late bool _obscureText;
-  
+
   @override
   void initState() {
     super.initState();
     _obscureText = widget.obscureText;
   }
-  
+
+  void _toggleObscure() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canToggleObscure =
+        widget.obscureText && widget.onSuffixIconPressed == null;
+
+    final IconData? effectiveSuffixIcon = canToggleObscure
+        ? (_obscureText ? Icons.visibility_off : Icons.visibility)
+        : widget.suffixIcon;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null) ...[
-          Text(
-            widget.label!,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text(widget.label!, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: AppTheme.sm),
         ],
         TextFormField(
@@ -125,9 +135,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              borderSide: const BorderSide(
-                color: AppTheme.errorColor,
-              ),
+              borderSide: const BorderSide(color: AppTheme.errorColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -137,16 +145,16 @@ class _CustomTextFieldState extends State<CustomTextField> {
               ),
             ),
             prefixIcon: widget.prefixIcon != null
-                ? Icon(
-                    widget.prefixIcon,
-                    color: AppTheme.textSecondaryColor,
-                  )
+                ? Icon(widget.prefixIcon, color: AppTheme.textSecondaryColor)
                 : null,
-            suffixIcon: widget.suffixIcon != null
-                ? GestureDetector(
-                    onTap: widget.onSuffixIconPressed,
+            suffixIcon: effectiveSuffixIcon != null
+                ? InkWell(
+                    onTap: widget.enabled
+                        ? (widget.onSuffixIconPressed ??
+                              (canToggleObscure ? _toggleObscure : null))
+                        : null,
                     child: Icon(
-                      widget.suffixIcon,
+                      effectiveSuffixIcon,
                       color: AppTheme.textSecondaryColor,
                     ),
                   )
@@ -167,7 +175,7 @@ class PasswordField extends StatefulWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final void Function(String)? onSubmitted;
-  
+
   const PasswordField({
     Key? key,
     this.label,
@@ -177,20 +185,20 @@ class PasswordField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
   }) : super(key: key);
-  
+
   @override
   State<PasswordField> createState() => _PasswordFieldState();
 }
 
 class _PasswordFieldState extends State<PasswordField> {
   late bool _obscureText;
-  
+
   @override
   void initState() {
     super.initState();
     _obscureText = true;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return CustomTextField(
@@ -222,7 +230,7 @@ class EmailField extends StatelessWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final void Function(String)? onSubmitted;
-  
+
   const EmailField({
     Key? key,
     this.label,
@@ -232,7 +240,7 @@ class EmailField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return CustomTextField(
@@ -247,17 +255,19 @@ class EmailField extends StatelessWidget {
       prefixIcon: Icons.email_outlined,
     );
   }
-  
+
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'L\'email est requis';
     }
-    
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(value)) {
       return 'Veuillez entrer une adresse email valide';
     }
-    
+
     return null;
   }
 }
@@ -270,7 +280,7 @@ class PhoneField extends StatelessWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final void Function(String)? onSubmitted;
-  
+
   const PhoneField({
     Key? key,
     this.label,
@@ -280,7 +290,7 @@ class PhoneField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
   }) : super(key: key);
-  
+
   @override
   Widget build(BuildContext context) {
     return CustomTextField(
@@ -295,17 +305,17 @@ class PhoneField extends StatelessWidget {
       prefixIcon: Icons.phone_outlined,
     );
   }
-  
+
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) {
       return 'Le numéro de téléphone est requis';
     }
-    
+
     final phoneRegex = RegExp(r'^[+]?[0-9]{7,15}$');
     if (!phoneRegex.hasMatch(value.replaceAll(RegExp(r'\s'), ''))) {
       return 'Veuillez entrer un numéro de téléphone valide';
     }
-    
+
     return null;
   }
 }

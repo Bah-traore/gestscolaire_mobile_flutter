@@ -14,7 +14,8 @@ class EmailVerificationScreen extends StatefulWidget {
     : super(key: key);
 
   @override
-  State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
@@ -22,6 +23,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   final _codeController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isResending = false;
 
   @override
   void dispose() {
@@ -29,8 +31,20 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     super.dispose();
   }
 
+  String _normalizedCode(String? raw) {
+    final v = (raw ?? '').trim();
+    // Ne conserver que les chiffres pour éviter les caractères invisibles
+    // (espaces, séparateurs, etc.) qui empêchent la validation.
+    return v.replaceAll(RegExp(r'\D'), '');
+  }
+
   Future<void> _verify() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final code = _normalizedCode(_codeController.text);
+    if (code.length != 6) {
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -40,10 +54,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       final api = Provider.of<ApiService>(context, listen: false);
       await api.post(
         '/auth/verify-email/',
-        data: {
-          'email': widget.email.trim(),
-          'code': _codeController.text.trim(),
-        },
+        data: {'email': widget.email.trim(), 'code': code},
       );
 
       if (!mounted) return;
@@ -66,6 +77,42 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resendCode() async {
+    if (_isResending || _isLoading) return;
+
+    setState(() {
+      _isResending = true;
+    });
+
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      await api.post(
+        '/auth/resend-email-code/',
+        data: {'email': widget.email.trim()},
+      );
+
+      if (!mounted) return;
+      context.showSnackBar(
+        'Un nouveau code a été envoyé.',
+        backgroundColor: Colors.green,
+        icon: Icons.mark_email_read_outlined,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      context.showSnackBar(
+        UserFriendlyErrors.from(e),
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResending = false;
         });
       }
     }
@@ -138,14 +185,10 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                       ),
                       maxLength: 6,
                       validator: (value) {
-                        final v = value?.trim() ?? '';
+                        final v = _normalizedCode(value);
                         if (v.isEmpty) return 'Le code est requis';
-                        if (v.length != 6) {
+                        if (v.length != 6)
                           return 'Le code doit contenir 6 chiffres';
-                        }
-                        if (!RegExp(r'^\\d{6}$').hasMatch(v)) {
-                          return 'Code invalide';
-                        }
                         return null;
                       },
                       enabled: !_isLoading,
@@ -162,8 +205,19 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     },
                   ),
                   const SizedBox(height: AppTheme.lg),
+                  CustomButton(
+                    label: 'Renvoyer le code',
+                    isLoading: _isResending,
+                    onPressed: () {
+                      if (_isResending || _isLoading) return;
+                      _resendCode();
+                    },
+                  ),
+                  const SizedBox(height: AppTheme.lg),
                   TextButton(
-                    onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                    onPressed: _isLoading
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     child: Text(
                       'Modifier l\'adresse email',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
