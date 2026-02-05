@@ -60,6 +60,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _index;
   ShellModuleKind? _activeModule;
+  DateTime? _lastBackPressTime;
 
   @override
   void initState() {
@@ -139,24 +140,57 @@ class _MainShellState extends State<MainShell> {
               ? 'Emploi du temps'
               : _modulesTitle(context));
 
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      extendBody: true,
-      appBar: _FuturisticShellAppBar(
-        title: title,
-        showModulePicker: tab == ShellTab.modules,
-        activeModule: _activeModule,
-        onModuleChanged: (m) {
+    return PopScope(
+      canPop: false, // Never allow automatic pop - we handle it manually
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+
+        if (_index > 0) {
+          // Not on dashboard - navigate back to dashboard
           setState(() {
-            _activeModule = m;
+            _index = 0;
           });
-        },
-        onProfile: () => _openProfile(context),
-      ),
-      body: SafeArea(bottom: false, child: body),
-      bottomNavigationBar: _FuturisticBottomBar(
-        index: _index,
-        onChanged: _selectTab,
+          return;
+        }
+
+        // On dashboard - handle double-tap to exit
+        final now = DateTime.now();
+        if (_lastBackPressTime == null ||
+            now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+          // First press or too long ago - show toast and wait
+          _lastBackPressTime = now;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Appuyez encore pour quitter'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          // Second press within 2 seconds - exit app
+          _lastBackPressTime = null;
+          Navigator.of(context).maybePop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        extendBody: true,
+        appBar: _FuturisticShellAppBar(
+          title: title,
+          showModulePicker: tab == ShellTab.modules,
+          activeModule: _activeModule,
+          onModuleChanged: (m) {
+            setState(() {
+              _activeModule = m;
+            });
+          },
+          onProfile: () => _openProfile(context),
+        ),
+        body: SafeArea(bottom: false, child: body),
+        bottomNavigationBar: _FuturisticBottomBar(
+          index: _index,
+          onChanged: _selectTab,
+        ),
       ),
     );
   }

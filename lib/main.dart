@@ -74,6 +74,9 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
+  // Afficher la notification locale même quand l'app est en arrière-plan ou fermée
+  await _initLocalNotifications();
+  await _showLocalNotification(message);
 }
 
 void main() async {

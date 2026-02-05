@@ -41,7 +41,8 @@ class ModulesScreen extends StatefulWidget {
   State<ModulesScreen> createState() => _ModulesScreenState();
 }
 
-class _ModulesScreenState extends State<ModulesScreen> {
+class _ModulesScreenState extends State<ModulesScreen>
+    with WidgetsBindingObserver {
   bool _loading = false;
   String? _error;
 
@@ -60,6 +61,8 @@ class _ModulesScreenState extends State<ModulesScreen> {
 
   Timer? _estDebounce;
   Timer? _childDebounce;
+
+  bool _wasPaused = false;
 
   Widget _futuristicCard(
     Widget child, {
@@ -105,6 +108,42 @@ class _ModulesScreenState extends State<ModulesScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _bootstrap();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _estDebounce?.cancel();
+    _childDebounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _wasPaused = true;
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && _wasPaused) {
+      _wasPaused = false;
+      _loadSelectorData();
+      _load();
+    }
   }
 
   String _formatDate(String? iso) {
@@ -1346,19 +1385,13 @@ class _ModulesScreenState extends State<ModulesScreen> {
     return '$v/$s';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bootstrap();
-    });
-  }
-
-  @override
-  void dispose() {
-    _estDebounce?.cancel();
-    _childDebounce?.cancel();
-    super.dispose();
+  String _formatPercent(dynamic v) {
+    if (v == null) return '';
+    if (v is num) {
+      final p = v.toDouble();
+      return '${p.toStringAsFixed(0)}%';
+    }
+    return '${v.toString()}%';
   }
 
   InputDecoration _glassDropdownDecoration(String label) {
@@ -1806,17 +1839,20 @@ class _ModulesScreenState extends State<ModulesScreen> {
       body = const SizedBox.shrink();
     }
 
-    return Stack(
-      children: [
-        body,
-        if (_refreshing)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: const LinearProgressIndicator(minHeight: 3),
-          ),
-      ],
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: Stack(
+        children: [
+          body,
+          if (_refreshing)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: const LinearProgressIndicator(minHeight: 3),
+            ),
+        ],
+      ),
     );
   }
 

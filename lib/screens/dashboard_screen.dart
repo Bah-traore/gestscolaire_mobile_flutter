@@ -21,7 +21,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   bool _loadingEstablishments = false;
   String? _establishmentsError;
   List<Map<String, dynamic>> _establishments = const [];
@@ -41,9 +42,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<String> _availableYears = const [];
   Map<String, String> _yearLabelToValue = const {};
 
+  bool _wasPaused = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadEstablishments();
       final ctx = context.read<ParentContextProvider>();
@@ -103,10 +107,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _establishmentsDebounce?.cancel();
     _childrenDebounce?.cancel();
     _yearDebounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _wasPaused = true;
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && _wasPaused) {
+      _wasPaused = false;
+      _loadEstablishments();
+      final ctx = context.read<ParentContextProvider>();
+      if (ctx.hasEstablishment) {
+        _loadChildren();
+      }
+    }
   }
 
   Widget _buildAcademicYearSection(BuildContext context) {
@@ -519,46 +545,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppTheme.lg,
-                  AppTheme.lg,
-                  AppTheme.lg,
-                  0,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await _loadEstablishments();
+            final ctx = context.read<ParentContextProvider>();
+            if (ctx.hasEstablishment) {
+              await _loadChildren();
+            }
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppTheme.lg,
+                    AppTheme.lg,
+                    AppTheme.lg,
+                    0,
+                  ),
+                  child: _buildHeroHeader(context),
                 ),
-                child: _buildHeroHeader(context),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(AppTheme.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildEstablishmentsSection(context),
-                    const SizedBox(height: AppTheme.lg),
-                    _buildAcademicYearSection(context),
-                    if (context.watch<ParentContextProvider>().hasEstablishment)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppTheme.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildEstablishmentsSection(context),
                       const SizedBox(height: AppTheme.lg),
-                    _buildChildrenSection(context),
-                    const SizedBox(height: AppTheme.xl),
-                    _buildSectionTitle(context, 'Modules'),
-                    const SizedBox(height: AppTheme.md),
-                    _buildFeaturesGrid(context),
-                    const SizedBox(height: AppTheme.xl),
-                    CustomButton(
-                      label: 'Se déconnecter',
-                      backgroundColor: AppTheme.errorColor,
-                      onPressed: () => _handleLogout(context),
-                    ),
-                  ],
+                      _buildAcademicYearSection(context),
+                      if (context
+                          .watch<ParentContextProvider>()
+                          .hasEstablishment)
+                        const SizedBox(height: AppTheme.lg),
+                      _buildChildrenSection(context),
+                      const SizedBox(height: AppTheme.xl),
+                      _buildSectionTitle(context, 'Modules'),
+                      const SizedBox(height: AppTheme.md),
+                      _buildFeaturesGrid(context),
+                      const SizedBox(height: AppTheme.xl),
+                      CustomButton(
+                        label: 'Se déconnecter',
+                        backgroundColor: AppTheme.errorColor,
+                        onPressed: () => _handleLogout(context),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

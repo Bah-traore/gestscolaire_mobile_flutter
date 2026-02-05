@@ -96,8 +96,32 @@ class UserFriendlyErrors {
       }
       return 'Service indisponible pour le moment. Veuillez réessayer plus tard.';
     }
-    if (status != null && status >= 500) {
-      return 'Le serveur rencontre un problème. Veuillez réessayer plus tard.';
+    if (status == 409) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final mapped = Map<String, dynamic>.from(data);
+        final errorCode = mapped['error_code']?.toString();
+        final details = mapped['details'] is Map
+            ? Map<String, dynamic>.from(mapped['details'])
+            : null;
+
+        if (errorCode == 'DUPLICATE_RESOURCE') {
+          final field = details?['duplicate_field']?.toString() ?? '';
+          if (field == 'telephone' || field == 'phone') {
+            return 'Ce numéro de téléphone est déjà utilisé. Veuillez en choisir un autre.';
+          }
+          if (field == 'email') {
+            return 'Cet email est déjà utilisé. Veuillez en choisir un autre.';
+          }
+          return 'Cette information existe déjà. Veuillez en choisir une autre.';
+        }
+      }
+
+      final safe = _sanitize(raw?.toString());
+      if (safe != null && safe.isNotEmpty) {
+        return safe;
+      }
+      return 'Cette information existe déjà.';
     }
 
     if (mapped != null) {
