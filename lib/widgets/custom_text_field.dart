@@ -72,20 +72,22 @@ class _CustomTextFieldState extends State<CustomTextField> {
     _obscureText = widget.obscureText;
   }
 
-  void _toggleObscure() {
-    setState(() {
-      _obscureText = !_obscureText;
-    });
-  }
+
 
   @override
   Widget build(BuildContext context) {
+    // Toujours utiliser le suffixIcon fourni ou le toggle automatique
     final canToggleObscure =
-        widget.obscureText && widget.onSuffixIconPressed == null;
+        widget.obscureText && widget.onSuffixIconPressed == null && widget.suffixIcon == null;
 
-    final IconData? effectiveSuffixIcon = canToggleObscure
-        ? (_obscureText ? Icons.visibility_off : Icons.visibility)
-        : widget.suffixIcon;
+    final IconData? effectiveSuffixIcon;
+    if (widget.suffixIcon != null) {
+      effectiveSuffixIcon = widget.suffixIcon;
+    } else if (canToggleObscure) {
+      effectiveSuffixIcon = _obscureText ? Icons.visibility_off : Icons.visibility;
+    } else {
+      effectiveSuffixIcon = null;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,14 +150,24 @@ class _CustomTextFieldState extends State<CustomTextField> {
                 ? Icon(widget.prefixIcon, color: AppTheme.textSecondaryColor)
                 : null,
             suffixIcon: effectiveSuffixIcon != null
-                ? InkWell(
-                    onTap: widget.enabled
+                ? IconButton(
+                    onPressed: widget.enabled
                         ? (widget.onSuffixIconPressed ??
-                              (canToggleObscure ? _toggleObscure : null))
+                              (canToggleObscure ? () {
+                                setState(() {
+                                  _obscureText = !_obscureText;
+                                });
+                              } : null))
                         : null,
-                    child: Icon(
+                    icon: Icon(
                       effectiveSuffixIcon,
                       color: AppTheme.textSecondaryColor,
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
                     ),
                   )
                 : null,
@@ -199,25 +211,81 @@ class _PasswordFieldState extends State<PasswordField> {
     _obscureText = true;
   }
 
+  void _togglePasswordVisibility() {
+    setState(() {
+      _obscureText = !_obscureText;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return CustomTextField(
-      label: widget.label ?? 'Mot de passe',
-      hint: widget.hint ?? 'Entrez votre mot de passe',
-      controller: widget.controller,
-      keyboardType: TextInputType.visiblePassword,
-      textInputAction: TextInputAction.done,
-      obscureText: _obscureText,
-      validator: widget.validator,
-      onChanged: widget.onChanged,
-      onSubmitted: widget.onSubmitted,
-      prefixIcon: Icons.lock_outline,
-      suffixIcon: _obscureText ? Icons.visibility_off : Icons.visibility,
-      onSuffixIconPressed: () {
-        setState(() {
-          _obscureText = !_obscureText;
-        });
-      },
+    print('DEBUG: PasswordField build - _obscureText = $_obscureText');
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.label != null) ...[
+          Text(widget.label!, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppTheme.sm),
+        ],
+        TextFormField(
+          controller: widget.controller,
+          keyboardType: TextInputType.visiblePassword,
+          textInputAction: TextInputAction.done,
+          obscureText: _obscureText,
+          validator: widget.validator,
+          onChanged: widget.onChanged,
+          onFieldSubmitted: widget.onSubmitted,
+          decoration: InputDecoration(
+            hintText: widget.hint,
+            filled: true,
+            fillColor: AppTheme.surfaceColor,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.lg,
+              vertical: AppTheme.md,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              borderSide: const BorderSide(color: AppTheme.borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              borderSide: const BorderSide(color: AppTheme.borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              borderSide: const BorderSide(color: AppTheme.errorColor),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              borderSide: const BorderSide(color: AppTheme.errorColor, width: 2),
+            ),
+            prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.textSecondaryColor),
+            suffixIcon: IconButton(
+              onPressed: () {
+                print('DEBUG: IconButton pressed - avant: $_obscureText');
+                _togglePasswordVisibility();
+                print('DEBUG: IconButton pressed - après: $_obscureText');
+              },
+              icon: Icon(
+                _obscureText ? Icons.visibility_off : Icons.visibility,
+                color: AppTheme.textSecondaryColor,
+                size: 20,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: 40,
+                minHeight: 40,
+              ),
+            ),
+            counterText: '',
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../models/user_model.dart';
 import 'api_service.dart';
 import 'google_auth_service.dart';
@@ -122,12 +124,29 @@ class AuthService {
       final trimmed = identifier.trim();
       final isEmail = trimmed.contains('@');
 
+      // Récupérer le FCM token et la plateforme
+      String? fcmToken;
+      String platform = 'unknown';
+      try {
+        final messaging = FirebaseMessaging.instance;
+        fcmToken = await messaging.getToken();
+        if (Platform.isAndroid) {
+          platform = 'android';
+        } else if (Platform.isIOS) {
+          platform = 'ios';
+        }
+      } catch (_) {
+        // Ignorer les erreurs FCM
+      }
+
       final response = await _apiService.post<Map<String, dynamic>>(
         '/auth/login/',
         data: {
           if (isEmail) 'email': trimmed else 'phone': trimmed,
           'password': password,
           if (tenantId != null) 'tenant_id': tenantId,
+          if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
+          'platform': platform,
         },
       );
 
@@ -200,15 +219,32 @@ class AuthService {
       // Obtenir les informations d'authentification
       final googleAuth = await googleUser.authentication;
 
+      // Récupérer le FCM token et la plateforme
+      String? fcmToken;
+      String platform = 'unknown';
+      try {
+        final messaging = FirebaseMessaging.instance;
+        fcmToken = await messaging.getToken();
+        if (Platform.isAndroid) {
+          platform = 'android';
+        } else if (Platform.isIOS) {
+          platform = 'ios';
+        }
+      } catch (_) {
+        // Ignorer les erreurs FCM
+      }
+
       // Envoyer les informations au backend Django
       final response = await _apiService.post(
         '/auth/google/',
         data: {
-          'id_token': googleAuth.idToken,
+          'google_token': googleAuth.idToken,
           'access_token': googleAuth.accessToken,
           'email': googleUser.email,
           'name': googleUser.displayName,
           'photo_url': googleUser.photoUrl,
+          if (fcmToken != null && fcmToken.isNotEmpty) 'fcm_token': fcmToken,
+          'platform': platform,
         },
       );
 

@@ -239,6 +239,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           hint: 'Entrez votre mot de passe',
                         ),
 
+
+
                         const SizedBox(height: AppTheme.md),
 
                         // Lien "Mot de passe oublié"

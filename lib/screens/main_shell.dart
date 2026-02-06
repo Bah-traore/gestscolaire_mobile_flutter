@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../config/app_theme.dart';
 import 'dashboard_screen.dart';
@@ -169,7 +170,7 @@ class _MainShellState extends State<MainShell> {
         } else {
           // Second press within 2 seconds - exit app
           _lastBackPressTime = null;
-          Navigator.of(context).maybePop();
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(

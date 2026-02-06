@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../utils/user_friendly_errors.dart';
+import '../utils/session_expired_handler.dart';
 
 /// Provider pour la gestion de l'authentification
 class AuthProvider extends ChangeNotifier {
@@ -174,6 +175,17 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Gérer l'expiration de session (appelé par SessionExpiredHandler)
+  Future<void> handleSessionExpired() async {
+    if (!_isAuthenticated) return; // Déjà déconnecté
+    
+    _currentUser = null;
+    _isAuthenticated = false;
+    _error = 'Votre session a expiré. Veuillez vous reconnecter.';
+    _isLoading = false;
+    notifyListeners();
   }
 
   /// Réinitialiser le mot de passe

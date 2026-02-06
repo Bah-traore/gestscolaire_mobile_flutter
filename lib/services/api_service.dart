@@ -1,9 +1,14 @@
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:logger/logger.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'auth_service.dart';
 import '../config/app_config.dart';
+import '../utils/session_expired_handler.dart';
+import 'performance_service.dart';
 
-/// Service API centralisé
+/// Service API centralisé avec optimisations de performance
 class ApiService {
   late Dio _dio;
   final Logger _logger = Logger();
@@ -11,6 +16,15 @@ class ApiService {
 
   AuthService? _authService;
   bool _refreshing = false;
+
+  // Services d'optimisation
+  final RequestManager _requestManager = RequestManager();
+  final NetworkOptimizer _networkOptimizer = NetworkOptimizer();
+  final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
+  final CacheService _cache = CacheService();
+
+  // Contrôleur pour annuler les requêtes
+  final CancelToken _cancelToken = CancelToken();
 
   ApiService() {
     _initializeDio();
@@ -20,22 +34,30 @@ class ApiService {
     _authService = authService;
   }
 
-  /// Initialiser Dio avec les configurations
+  /// Initialiser Dio avec les configurations et optimisations
   void _initializeDio() {
     _dio = Dio(
       BaseOptions(
         baseUrl: AppConfig.apiBaseUrl,
         connectTimeout: AppConfig.connectionTimeout,
         receiveTimeout: AppConfig.apiTimeout,
+        // Timeout plus court pour meilleure expérience utilisateur
+        sendTimeout: const Duration(seconds: 45),
         contentType: 'application/json',
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'GestScolaire Mobile/1.0',
+          'Connection': 'keep-alive',
         },
+        // Activer la validation pour éviter les requêtes inutiles
+        validateStatus: (status) => status != null && status < 500,
+        // Utiliser plain pour éviter les erreurs de parsing automatique
+        responseType: ResponseType.plain,
       ),
     );
 
     // Ajouter les interceptors
+    _dio.interceptors.add(CacheInterceptor());
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: _onRequest,
@@ -43,6 +65,14 @@ class ApiService {
         onError: _onError,
       ),
     );
+
+    // Configurer l'adaptateur HTTP pour optimiser les performances
+    (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+      final client = HttpClient();
+      client.idleTimeout = const Duration(seconds: 30);
+      client.connectionTimeout = const Duration(seconds: 30);
+      return client;
+    };
   }
 
   /// Callback pour les requêtes
@@ -65,47 +95,134 @@ class ApiService {
     return handler.next(options);
   }
 
-  /// Callback pour les réponses
+  /// Callback pour les réponses avec monitoring et validation
   Future<void> _onResponse(
     Response response,
     ResponseInterceptorHandler handler,
   ) async {
-    if (AppConfig.enableDebugLogging) {
+    final requestTime = response.requestOptions.headers['X-Request-Time'];
+    if (requestTime != null) {
+      final startTime = DateTime.parse(requestTime as String);
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      
+      // Enregistrer les performances
+      _performanceMonitor.recordResponseTime(
+        response.requestOptions.path,
+        duration,
+      );
+      
+      if (AppConfig.enableDebugLogging) {
+        _logger.d(
+          'RESPONSE: ${response.statusCode} ${response.requestOptions.path} (${duration}ms)',
+        );
+      }
+    } else if (AppConfig.enableDebugLogging) {
       _logger.d(
         'RESPONSE: ${response.statusCode} ${response.requestOptions.path}',
       );
+    }
+
+
+    if (AppConfig.enableDebugLogging) {
       _logger.d('Data: ${response.data}');
     }
 
     return handler.next(response);
   }
 
-  /// Callback pour les erreurs
+  /// Callback pour les erreurs avec gestion améliorée
   Future<void> _onError(
     DioException error,
     ErrorInterceptorHandler handler,
   ) async {
-    _logger.e('ERROR: ${error.message}');
-    _logger.e('Status Code: ${error.response?.statusCode}');
-    _logger.e('Response: ${error.response?.data}');
-
     final status = error.response?.statusCode;
-
-    final bool isRefreshEndpoint = error.requestOptions.path.contains(
-      '/auth/refresh',
-    );
-
-    final bool shouldAttemptRefresh = status == 401;
-
     final requestOptions = error.requestOptions;
     final alreadyRetried = requestOptions.extra['retried'] == true;
 
+    if (AppConfig.enableDebugLogging) {
+      _logger.e('⛔ Request failed: ${requestOptions.path} - ${error.message}');
+      _logger.e('⛔ ERROR: ${error.error}');
+      _logger.e('⛔ Status Code: $status');
+      _logger.e('⛔ Response: ${error.response?.data}');
+    }
+
+    // Gérer les erreurs de formatage JSON
+    if (error.error is FormatException) {
+      _logger.e('⛠️ JSON Format Error: ${error.error}');
+      
+      // Créer une erreur plus descriptive
+      final customError = DioException(
+        requestOptions: requestOptions,
+        error: 'Invalid response format from server',
+        message: 'Server returned invalid JSON format',
+        type: DioExceptionType.unknown,
+      );
+      
+      return handler.next(customError);
+    }
+
+    // Gérer les erreurs de réseau et timeout
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout) {
+      _logger.w('⏰ Timeout: ${error.type} for ${requestOptions.path}');
+      
+      final timeoutError = DioException(
+        requestOptions: requestOptions,
+        error: error.error,
+        message: 'Request timeout - please check your connection',
+        type: error.type,
+      );
+      
+      return handler.next(timeoutError);
+    }
+
+    // Gérer les erreurs de connexion réseau
+    if (error.type == DioExceptionType.connectionError) {
+      _logger.w('🌐 Connection Error: ${error.message}');
+      
+      final connectionError = DioException(
+        requestOptions: requestOptions,
+        error: error.error,
+        message: 'Network connection error - please check your internet',
+        type: error.type,
+      );
+      
+      return handler.next(connectionError);
+    }
+
+    final bool isRefreshEndpoint = requestOptions.path.contains('/auth/refresh');
+
+    // Gérer le cas où le refresh token est aussi expiré (session vraiment expirée)
+    if (status == 401 && isRefreshEndpoint) {
+      _logger.w('Session expirée - impossible de rafraîchir le token');
+      if (_authService != null) {
+        await SessionExpiredHandler.handleSessionExpired(_authService!);
+      }
+      return handler.next(error);
+    }
+
+    // Si après tentative de refresh on a toujours 401, la session est expirée
+    if (status == 401 && alreadyRetried) {
+      _logger.w('Session expirée après tentative de refresh');
+      if (_authService != null) {
+        await SessionExpiredHandler.handleSessionExpired(_authService!);
+      }
+      return handler.next(error);
+    }
+
+    // Tenter de rafraîchir le token pour les erreurs 401
+    final shouldAttemptRefresh = status == 401 &&
+        _authToken != null &&
+        _authService != null &&
+        !isRefreshEndpoint;
+
     if (shouldAttemptRefresh &&
-        !isRefreshEndpoint &&
         !alreadyRetried &&
         _authService != null &&
         !_refreshing) {
       _refreshing = true;
+
       try {
         final refreshed = await _authService!.refreshAccessToken();
         if (refreshed) {
@@ -119,9 +236,15 @@ class ApiService {
 
           final response = await _dio.fetch(requestOptions);
           return handler.resolve(response);
+        } else {
+          // Le refresh a échoué, déconnecter l'utilisateur
+          _logger.w('Échec du refresh token - session expirée');
+          await SessionExpiredHandler.handleSessionExpired(_authService!);
         }
       } catch (_) {
-        // ignore, will fallthrough
+        // Erreur lors du refresh, déconnecter l'utilisateur
+        _logger.w('Erreur lors du refresh token - session expirée');
+        await SessionExpiredHandler.handleSessionExpired(_authService!);
       } finally {
         _refreshing = false;
       }
@@ -140,52 +263,216 @@ class ApiService {
     _authToken = null;
   }
 
-  /// Requête GET
+  /// Requête GET optimisée avec cache et retry
   Future<T> get<T>(
     String endpoint, {
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? fromJson,
+    Duration? cacheExpiration,
+    bool forceRefresh = false,
+    int maxRetries = 2,
   }) async {
-    try {
-      final response = await _dio.get(
-        endpoint,
-        queryParameters: queryParameters,
-      );
+    final cacheKey = 'GET:$endpoint:${queryParameters?.toString() ?? ''}';
+    
+    return _requestManager.execute(
+      cacheKey,
+      () async {
+        return _executeGetWithRetry<T>(
+          endpoint,
+          queryParameters,
+          fromJson,
+          maxRetries,
+        );
+      },
+      cacheExpiration: cacheExpiration,
+      forceRefresh: forceRefresh,
+    );
+  }
 
-      if (fromJson != null) {
-        return fromJson(response.data);
+  /// Exécuter GET avec retry automatique en cas d'erreur de formatage
+  Future<T> _executeGetWithRetry<T>(
+    String endpoint,
+    Map<String, dynamic>? queryParameters,
+    T Function(dynamic)? fromJson,
+    int maxRetries,
+  ) async {
+    int attempts = 0;
+    
+    while (attempts <= maxRetries) {
+      try {
+        final startTime = DateTime.now();
+        
+        // Utiliser responseType.plain pour éviter le parsing automatique
+        var response = await _dio.get(
+          endpoint,
+          queryParameters: queryParameters,
+          cancelToken: _cancelToken,
+        );
+
+        // Valider et parser la réponse
+        final validatedData = _validateAndParseResponse(response);
+        
+        if (fromJson != null) {
+          return fromJson(validatedData);
+        }
+
+        return validatedData as T;
+        
+      } catch (e) {
+        attempts++;
+        
+        // Si c'est une erreur de formatage et qu'on peut réessayer
+        if (e is DioException && 
+            e.error is FormatException && 
+            attempts <= maxRetries) {
+          _logger.w('🔄 Retry $attempts/$maxRetries for $endpoint due to format error');
+          
+          // Attendre un peu avant de réessayer
+          await Future.delayed(Duration(milliseconds: 500 * attempts));
+          continue;
+        }
+        
+        // Si c'est la dernière tentative ou une autre erreur
+        if (attempts > maxRetries) {
+          _logger.e('GET Error after $maxRetries retries: $e');
+        } else {
+          _logger.e('GET Error: $e');
+        }
+        rethrow;
       }
+    }
+    
+    throw Exception('Max retries exceeded');
+  }
 
-      return response.data as T;
+  /// Valider et parser la réponse du serveur
+  dynamic _validateAndParseResponse(Response response) {
+    final data = response.data;
+
+    if (data == null) {
+      throw const FormatException('Response data is null');
+    }
+
+    // Déjà JSON parsé par Dio
+    if (data is Map || data is List) {
+      return data;
+    }
+
+    // Certains adapters peuvent renvoyer des bytes
+    if (data is List<int>) {
+      try {
+        final decoded = utf8.decode(data, allowMalformed: true);
+        return _parseJsonString(decoded);
+      } catch (e) {
+        throw FormatException('Failed to decode bytes response: $e');
+      }
+    }
+
+    // Cas standard: String
+    if (data is String) {
+      return _parseJsonString(data);
+    }
+
+    // Fallback: retourner brut
+    return data;
+  }
+
+  dynamic _parseJsonString(String raw) {
+    final responseData = raw.trim();
+
+    if (responseData.isEmpty) {
+      throw const FormatException('Response data is empty');
+    }
+
+    // Si c'est une réponse HTML (souvent erreur reverse proxy)
+    if (responseData.startsWith('<!DOCTYPE html') || responseData.startsWith('<html')) {
+      throw FormatException('Response is HTML, not JSON: ${responseData.substring(0, responseData.length > 80 ? 80 : responseData.length)}');
+    }
+
+    if (!responseData.startsWith('{') && !responseData.startsWith('[')) {
+      final preview = responseData.substring(0, responseData.length > 80 ? 80 : responseData.length);
+      throw FormatException('Response is not valid JSON: $preview');
+    }
+
+    try {
+      return jsonDecode(responseData);
     } catch (e) {
-      _logger.e('GET Error: $e');
-      rethrow;
+      throw FormatException('Failed to parse JSON: $e');
     }
   }
 
-  /// Requête POST
+  /// Requête POST optimisée avec retry
   Future<T> post<T>(
     String endpoint, {
     dynamic data,
     Map<String, dynamic>? queryParameters,
     T Function(dynamic)? fromJson,
+    Duration? cacheExpiration,
+    int maxRetries = 1,
   }) async {
-    try {
-      final response = await _dio.post(
-        endpoint,
-        data: data,
-        queryParameters: queryParameters,
+    // Pour les POST, on utilise le batch si possible
+    if (data != null && _canBatchRequest(endpoint)) {
+      return _networkOptimizer.batchRequest(
+        'POST:$endpoint',
+        () => _executePostWithRetry<T>(endpoint, data, queryParameters, fromJson, maxRetries),
       );
-
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-
-      return response.data as T;
-    } catch (e) {
-      _logger.e('POST Error: $e');
-      rethrow;
     }
+    
+    return _executePostWithRetry<T>(endpoint, data, queryParameters, fromJson, maxRetries);
+  }
+
+  Future<T> _executePostWithRetry<T>(
+    String endpoint,
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    T Function(dynamic)? fromJson,
+    int maxRetries,
+  ) async {
+    int attempts = 0;
+    
+    while (attempts <= maxRetries) {
+      try {
+        final response = await _dio.post(
+          endpoint,
+          data: data,
+          queryParameters: queryParameters,
+          cancelToken: _cancelToken,
+        );
+
+        // Valider et parser la réponse
+        final validatedData = _validateAndParseResponse(response);
+        
+        if (fromJson != null) {
+          return fromJson(validatedData);
+        }
+
+        return validatedData as T;
+        
+      } catch (e) {
+        attempts++;
+        
+        // Si c'est une erreur de formatage et qu'on peut réessayer
+        if (e is DioException && 
+            e.error is FormatException && 
+            attempts <= maxRetries) {
+          _logger.w('🔄 POST Retry $attempts/$maxRetries for $endpoint due to format error');
+          
+          // Attendre un peu avant de réessayer
+          await Future.delayed(Duration(milliseconds: 500 * attempts));
+          continue;
+        }
+        
+        // Si c'est la dernière tentative ou une autre erreur
+        if (attempts > maxRetries) {
+          _logger.e('POST Error after $maxRetries retries: $e');
+        } else {
+          _logger.e('POST Error: $e');
+        }
+        rethrow;
+      }
+    }
+    
+    throw Exception('Max POST retries exceeded');
   }
 
   /// Requête PUT
@@ -279,35 +566,39 @@ class ApiService {
     }
   }
 
-  /// Uploader un fichier
-  Future<T> uploadFile<T>(
-    String endpoint,
-    String filePath, {
-    String fieldName = 'file',
-    Map<String, dynamic>? additionalFields,
-    Function(int, int)? onSendProgress,
-    T Function(dynamic)? fromJson,
-  }) async {
-    try {
-      final formData = FormData.fromMap({
-        fieldName: await MultipartFile.fromFile(filePath),
-        if (additionalFields != null) ...additionalFields,
-      });
-
-      final response = await _dio.post(
-        endpoint,
-        data: formData,
-        onSendProgress: onSendProgress,
-      );
-
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-
-      return response.data as T;
-    } catch (e) {
-      _logger.e('Upload Error: $e');
-      rethrow;
+  /// Annuler toutes les requêtes en cours
+  void cancelAllRequests() {
+    if (!_cancelToken.isCancelled) {
+      _cancelToken.cancel('Requests cancelled by user');
     }
+    _networkOptimizer.cancelAllBatches();
+  }
+
+  /// Vider le cache
+  void clearCache() {
+    _cache.clear();
+    _requestManager.clearCache();
+  }
+
+  /// Obtenir les statistiques de performance
+  Map<String, Map<String, dynamic>> getPerformanceStats() {
+    return _performanceMonitor.getPerformanceStats();
+  }
+
+  /// Vérifier si une requête peut être batchée
+  bool _canBatchRequest(String endpoint) {
+    // Ne batcher que les requêtes de données similaires
+    final batchableEndpoints = [
+      '/parent/context/',
+      '/children/',
+      '/establishments/',
+    ];
+    return batchableEndpoints.any((e) => endpoint.contains(e));
+  }
+
+  /// Nettoyer les ressources
+  void dispose() {
+    cancelAllRequests();
+    clearCache();
   }
 }

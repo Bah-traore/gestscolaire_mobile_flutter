@@ -12,6 +12,7 @@ import '../widgets/custom_button.dart';
 import 'package:dio/dio.dart';
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/services.dart';
 
 /// Écran du tableau de bord
 class DashboardScreen extends StatefulWidget {
@@ -43,6 +44,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   Map<String, String> _yearLabelToValue = const {};
 
   bool _wasPaused = false;
+
+  DateTime? _lastBackPressAt;
 
   @override
   void initState() {
@@ -542,6 +545,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+
+        final now = DateTime.now();
+        final last = _lastBackPressAt;
+        final shouldExit =
+            last != null && now.difference(last) <= const Duration(seconds: 2);
+
+        if (shouldExit) {
+          SystemNavigator.pop();
+          return;
+        }
+
+        _lastBackPressAt = now;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Appuyez encore pour quitter'),
+              duration: Duration(seconds: 2),
+            ),
+          );
       },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
@@ -585,11 +608,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const SizedBox(height: AppTheme.md),
                       _buildFeaturesGrid(context),
                       const SizedBox(height: AppTheme.xl),
-                      CustomButton(
-                        label: 'Se déconnecter',
-                        backgroundColor: AppTheme.errorColor,
-                        onPressed: () => _handleLogout(context),
-                      ),
+                      // CustomButton(
+                      //   label: 'Se déconnecter',
+                      //   backgroundColor: AppTheme.errorColor,
+                      //   onPressed: () => _handleLogout(context),
+                      // ),
                     ],
                   ),
                 ),
