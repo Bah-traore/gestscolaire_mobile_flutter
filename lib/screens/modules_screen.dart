@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/children_service.dart';
 import '../services/establishments_service.dart';
 import '../services/modules_service.dart';
+import '../utils/formatters.dart';
 import '../utils/user_friendly_errors.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart' as custom;
@@ -212,7 +213,12 @@ class _ModulesScreenState extends State<ModulesScreen>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.lg),
+      padding: const EdgeInsets.only(
+        left: AppTheme.lg,
+        right: AppTheme.lg,
+        top: AppTheme.lg,
+        bottom: 160, // Espace pour la barre de navigation
+      ),
       children: [
         _futuristicCard(
           Column(
@@ -333,7 +339,9 @@ class _ModulesScreenState extends State<ModulesScreen>
         else
           ...absences.map((a) {
             final date = _formatDate(a['date']?.toString());
-            final matiere = a['matiere']?.toString() ?? '';
+            final matiere = AppFormatters.cleanSubjectName(
+              a['matiere']?.toString() ?? '',
+            );
             final motif = a['motif']?.toString() ?? '';
             final s = a['status']?.toString();
             final sLabel = a['status_label']?.toString() ?? statusLabel(s);
@@ -484,9 +492,27 @@ class _ModulesScreenState extends State<ModulesScreen>
     final hasAny = tranches.isNotEmpty || payments.isNotEmpty;
     if (!hasAny) {
       return Center(
-        child: Text(
-          'Aucune donnée de scolarité.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTheme.lg),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
+              child: const Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 48,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: AppTheme.md),
+            Text(
+              'Aucune donnée de scolarité.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ),
       );
     }
@@ -524,6 +550,44 @@ class _ModulesScreenState extends State<ModulesScreen>
       return AppTheme.primaryColor;
     }
 
+    IconData _getTrancheIcon(String? statut) {
+      final v = (statut ?? '').toLowerCase();
+      if (v.contains('paye') || v.contains('paid') || v.contains('valide')) {
+        return Icons.check_circle;
+      }
+      if (v.contains('attente') || v.contains('pending')) {
+        return Icons.pending;
+      }
+      if (v.contains('retard') ||
+          v.contains('overdue') ||
+          v.contains('impaye')) {
+        return Icons.warning;
+      }
+      return Icons.payment;
+    }
+
+    IconData _getPaymentIcon(String? mode) {
+      final v = (mode ?? '').toLowerCase();
+      if (v.contains('especes') || v.contains('cash')) {
+        return Icons.money;
+      }
+      if (v.contains('carte') || v.contains('card')) {
+        return Icons.credit_card;
+      }
+      if (v.contains('mobile') || v.contains('orange') || v.contains('mtn')) {
+        return Icons.phone_android;
+      }
+      if (v.contains('banque') ||
+          v.contains('bank') ||
+          v.contains('virement')) {
+        return Icons.account_balance;
+      }
+      if (v.contains('cheque')) {
+        return Icons.description;
+      }
+      return Icons.receipt_long;
+    }
+
     final remainingNum = (remaining is num)
         ? remaining.toDouble()
         : double.tryParse(remaining?.toString() ?? '');
@@ -543,149 +607,317 @@ class _ModulesScreenState extends State<ModulesScreen>
               : (clamped >= 0.4 ? Colors.orange : Colors.red));
 
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.lg),
+      padding: const EdgeInsets.only(
+        left: AppTheme.lg,
+        right: AppTheme.lg,
+        bottom: AppTheme.lg,
+        top: AppTheme.sm,
+      ),
       children: [
-        Container(
-          padding: const EdgeInsets.all(AppTheme.lg),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: Column(
+        _futuristicCard(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(AppTheme.sm),
+                    padding: const EdgeInsets.all(AppTheme.md),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.10),
+                      gradient: RadialGradient(
+                        colors: [
+                          AppTheme.primaryColor,
+                          AppTheme.primaryColor.withOpacity(0.60),
+                          AppTheme.primaryColor.withOpacity(0.20),
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      boxShadow: [
+                        // Glow effect principal
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.60),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                          offset: const Offset(0, 0),
+                        ),
+                        // Glow secondaire
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.40),
+                          blurRadius: 40,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 0),
+                        ),
+                        // Ombre subtile pour profondeur
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.20),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.receipt_long, size: 18),
+                    child: const Icon(
+                      Icons.receipt_long,
+                      size: 24,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: AppTheme.md),
                   Expanded(
-                    child: Text(
-                      'Récapitulatif',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Récapitulatif',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                        ),
+                        if (periodeLabel.trim().isNotEmpty) ...[
+                          const SizedBox(height: AppTheme.xs),
+                          Text(
+                            periodeLabel,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   if (fullyPaid)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.md,
+                        horizontal: AppTheme.lg,
                         vertical: AppTheme.sm,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.10),
+                        gradient: RadialGradient(
+                          colors: [
+                            AppTheme.successColor,
+                            AppTheme.successColor.withOpacity(0.70),
+                            AppTheme.successColor.withOpacity(0.30),
+                          ],
+                        ),
                         borderRadius: BorderRadius.circular(
                           AppTheme.radiusLarge,
                         ),
-                        border: Border.all(
-                          color: Colors.green.withOpacity(0.25),
-                        ),
+                        boxShadow: [
+                          // Glow effect principal
+                          BoxShadow(
+                            color: AppTheme.successColor.withOpacity(0.50),
+                            blurRadius: 15,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 0),
+                          ),
+                          // Glow secondaire
+                          BoxShadow(
+                            color: AppTheme.successColor.withOpacity(0.30),
+                            blurRadius: 25,
+                            spreadRadius: 0.5,
+                            offset: const Offset(0, 0),
+                          ),
+                          // Ombre subtile pour profondeur
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'Soldé',
-                        style: Theme.of(context).textTheme.bodySmall,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: AppTheme.xs),
+                          Text(
+                            'Soldé',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
               ),
-              if (periodeLabel.trim().isNotEmpty) ...[
-                const SizedBox(height: AppTheme.sm),
-                Text(
-                  periodeLabel,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-              const SizedBox(height: AppTheme.md),
+              const SizedBox(height: AppTheme.lg),
               Row(
                 children: [
                   Expanded(
-                    child: _kpiTile(
+                    child: _enhancedKpiTile(
                       context,
                       label: 'Total',
                       value: money(total),
-                      icon: Icons.payments,
+                      icon: Icons.account_balance,
+                      color: AppTheme.primaryColor,
                     ),
                   ),
                   const SizedBox(width: AppTheme.md),
                   Expanded(
-                    child: _kpiTile(
+                    child: _enhancedKpiTile(
                       context,
                       label: 'Payé',
                       value: money(paid),
                       icon: Icons.check_circle,
+                      color: AppTheme.successColor,
                     ),
                   ),
                   const SizedBox(width: AppTheme.md),
                   Expanded(
-                    child: _kpiTile(
+                    child: _enhancedKpiTile(
                       context,
                       label: 'Reste',
                       value: money(remaining),
                       icon: Icons.account_balance_wallet,
+                      color: remainingNum != null && remainingNum > 0
+                          ? AppTheme.warningColor
+                          : AppTheme.successColor,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: AppTheme.lg),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                child: LinearProgressIndicator(
-                  minHeight: 10,
-                  value: clamped,
-                  backgroundColor: AppTheme.borderColor.withOpacity(0.35),
-                  color: progressColor,
+              Container(
+                padding: const EdgeInsets.all(AppTheme.md),
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  border: Border.all(color: progressColor.withOpacity(0.20)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Progression du paiement',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          '${(clamped * 100).toStringAsFixed(1)}%',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: progressColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.sm),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 800),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusLarge,
+                        ),
+                        child: LinearProgressIndicator(
+                          minHeight: 12,
+                          value: clamped,
+                          backgroundColor: AppTheme.borderColor.withOpacity(
+                            0.20,
+                          ),
+                          color: progressColor,
+                        ),
+                      ),
+                    ),
+                    if (paidNum != null && totalNum != null) ...[
+                      const SizedBox(height: AppTheme.sm),
+                      Text(
+                        '${money(paidNum)} payé sur ${money(totalNum)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const SizedBox(height: AppTheme.sm),
-              Text(
-                'Progression: ${(clamped * 100).toStringAsFixed(1)}%',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (paidNum != null && totalNum != null) ...[
-                const SizedBox(height: AppTheme.sm),
-                Text(
-                  '${money(paidNum)} / ${money(totalNum)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
             ],
           ),
         ),
         const SizedBox(height: AppTheme.lg),
 
         if (tranches.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.all(AppTheme.md),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Row(
+          _futuristicCard(
+            Column(
               children: [
-                const Icon(Icons.calendar_month, size: 18),
-                const SizedBox(width: AppTheme.md),
-                Expanded(
-                  child: Text(
-                    'Tranches',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  '${tranches.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.sm),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.warningColor,
+                            AppTheme.warningColor.withOpacity(0.80),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusMedium,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.warningColor.withOpacity(0.30),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.md),
+                    Expanded(
+                      child: Text(
+                        'Tranches',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.md,
+                        vertical: AppTheme.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.warningColor,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusLarge,
+                        ),
+                      ),
+                      child: Text(
+                        '${tranches.length}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.lg,
+              vertical: AppTheme.md,
+            ),
           ),
           const SizedBox(height: AppTheme.md),
-          ...tranches.map((t) {
+          ...tranches.asMap().entries.map((entry) {
+            final index = entry.key;
+            final t = entry.value;
             final name = t['nom']?.toString() ?? 'Tranche';
             final echeance = _formatDate(t['date_echeance']?.toString());
             final montant = money(t['montant']);
@@ -700,86 +932,209 @@ class _ModulesScreenState extends State<ModulesScreen>
             final cl = pv == null ? null : pv.clamp(0.0, 1.0);
             final color = statusColor(statut);
 
-            return Container(
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 200 + (index * 50)),
+              curve: Curves.easeOut,
               margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppTheme.sm),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.10),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusLarge,
-                          ),
-                        ),
-                        child: const Icon(Icons.payments_outlined, size: 18),
-                      ),
-                      const SizedBox(width: AppTheme.md),
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      if (statut.trim().isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.md,
-                            vertical: AppTheme.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.10),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusLarge,
-                            ),
-                            border: Border.all(color: color.withOpacity(0.25)),
-                          ),
-                          child: Text(
-                            statut,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                    ],
+                border: Border.all(color: color.withOpacity(0.30), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.10),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  if (echeance.isNotEmpty) ...[
-                    const SizedBox(height: AppTheme.sm),
-                    Text(
-                      'Échéance: $echeance',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                  const SizedBox(height: AppTheme.sm),
-                  Text(
-                    'Payé: $montantPaye / $montant',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  if (cl != null) ...[
-                    const SizedBox(height: AppTheme.md),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                      child: LinearProgressIndicator(
-                        minHeight: 8,
-                        value: cl,
-                        backgroundColor: AppTheme.borderColor.withOpacity(0.35),
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(height: AppTheme.sm),
-                    Text(
-                      'Progression: ${(cl * 100).toStringAsFixed(0)}%',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                  AppTheme.shadowSmall,
                 ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  onTap: () {
+                    // TODO: Add navigation to tranche details
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.sm),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    color.withOpacity(0.15),
+                                    color.withOpacity(0.05),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                border: Border.all(
+                                  color: color.withOpacity(0.30),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                _getTrancheIcon(statut),
+                                size: 20,
+                                color: color,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                  ),
+                                  if (echeance.isNotEmpty) ...[
+                                    const SizedBox(height: AppTheme.xs),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.event,
+                                          size: 14,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        const SizedBox(width: AppTheme.xs),
+                                        Text(
+                                          'Échéance: $echeance',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color:
+                                                    AppTheme.textSecondaryColor,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (statut.trim().isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.md,
+                                  vertical: AppTheme.sm,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [color, color.withOpacity(0.80)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusLarge,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.30),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  statut,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.md),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(AppTheme.sm),
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundColor,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusSmall,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Montant: $montant',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                'Payé: $montantPaye',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: color,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (cl != null) ...[
+                          const SizedBox(height: AppTheme.md),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Progression',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    '${(cl * 100).toStringAsFixed(0)}%',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: color,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: AppTheme.sm),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 800),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusLarge,
+                                  ),
+                                  child: LinearProgressIndicator(
+                                    minHeight: 8,
+                                    value: cl,
+                                    backgroundColor: AppTheme.borderColor
+                                        .withOpacity(0.20),
+                                    color: color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
             );
           }),
@@ -787,32 +1142,78 @@ class _ModulesScreenState extends State<ModulesScreen>
         ],
 
         if (payments.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.all(AppTheme.md),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Row(
+          _futuristicCard(
+            Column(
               children: [
-                const Icon(Icons.history, size: 18),
-                const SizedBox(width: AppTheme.md),
-                Expanded(
-                  child: Text(
-                    'Paiements récents',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  '${payments.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.sm),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.infoColor,
+                            AppTheme.infoColor.withOpacity(0.80),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusMedium,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.infoColor.withOpacity(0.30),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.history,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.md),
+                    Expanded(
+                      child: Text(
+                        'Paiements récents',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.md,
+                        vertical: AppTheme.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.infoColor,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusLarge,
+                        ),
+                      ),
+                      child: Text(
+                        '${payments.length}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.lg,
+              vertical: AppTheme.md,
+            ),
           ),
           const SizedBox(height: AppTheme.md),
-          ...payments.take(20).map((p) {
+          ...payments.take(20).toList().asMap().entries.map((entry) {
+            final index = entry.key;
+            final p = entry.value;
             final amount = money(p['montant_paye']);
             final date = _formatDate(p['date_paiement']?.toString());
             final mode = p['mode_paiement']?.toString() ?? '';
@@ -820,67 +1221,185 @@ class _ModulesScreenState extends State<ModulesScreen>
             final trancheId = p['tranche_id']?.toString() ?? '';
             final color = statusColor(statut);
 
-            return Container(
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 200 + (index * 30).toInt()),
+              curve: Curves.easeOut,
               margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(AppTheme.sm),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    ),
-                    child: const Icon(Icons.receipt, size: 18),
+                border: Border.all(color: color.withOpacity(0.20), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(width: AppTheme.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  AppTheme.shadowSmall,
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  onTap: () {
+                    // TODO: Add navigation to payment details
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    child: Row(
                       children: [
-                        Text(
-                          amount,
-                          style: Theme.of(context).textTheme.titleMedium,
+                        Container(
+                          padding: const EdgeInsets.all(AppTheme.sm),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                color.withOpacity(0.12),
+                                color.withOpacity(0.06),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMedium,
+                            ),
+                            border: Border.all(
+                              color: color.withOpacity(0.25),
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            _getPaymentIcon(mode),
+                            size: 20,
+                            color: color,
+                          ),
                         ),
-                        const SizedBox(height: AppTheme.sm),
-                        Text(
-                          [
-                            if (date.isNotEmpty) date,
-                            if (mode.isNotEmpty) mode,
-                            if (trancheId.isNotEmpty) 'Tranche $trancheId',
-                          ].join(' • '),
-                          style: Theme.of(context).textTheme.bodySmall,
+                        const SizedBox(width: AppTheme.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                amount,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                              ),
+                              const SizedBox(height: AppTheme.sm),
+                              Row(
+                                children: [
+                                  if (date.isNotEmpty) ...[
+                                    Icon(
+                                      Icons.schedule,
+                                      size: 14,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                    const SizedBox(width: AppTheme.xs),
+                                    Text(
+                                      date,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                    ),
+                                  ],
+                                  if (mode.isNotEmpty && date.isNotEmpty) ...[
+                                    const SizedBox(width: AppTheme.sm),
+                                    Text(
+                                      '•',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: AppTheme.textTertiaryColor,
+                                          ),
+                                    ),
+                                    const SizedBox(width: AppTheme.sm),
+                                  ],
+                                  if (mode.isNotEmpty)
+                                    Expanded(
+                                      child: Text(
+                                        mode,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: color,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  if (trancheId.isNotEmpty) ...[
+                                    if (mode.isNotEmpty) ...[
+                                      const SizedBox(width: AppTheme.sm),
+                                      Text(
+                                        '•',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppTheme.textTertiaryColor,
+                                            ),
+                                      ),
+                                      const SizedBox(width: AppTheme.sm),
+                                    ],
+                                    Text(
+                                      'T$trancheId',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: AppTheme.textSecondaryColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
+                        if (statut.trim().isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.md,
+                              vertical: AppTheme.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [color, color.withOpacity(0.80)],
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusLarge,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withOpacity(0.25),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              statut,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                  if (statut.trim().isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.md,
-                        vertical: AppTheme.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.radiusLarge,
-                        ),
-                        border: Border.all(color: color.withOpacity(0.25)),
-                      ),
-                      child: Text(
-                        statut,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ],
+                ),
               ),
             );
           }),
+          const SizedBox(height: 100), // Espace pour la barre de navigation
         ],
       ],
     );
@@ -906,10 +1425,18 @@ class _ModulesScreenState extends State<ModulesScreen>
       final hasEstablishment = ctx.establishment != null;
       final eleveId = ctx.child?.id;
       if (!hasEstablishment) {
-        throw Exception('Veuillez sélectionner une école');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner une école pour continuer';
+        });
+        return;
       }
       if (eleveId == null) {
-        throw Exception('Veuillez sélectionner un enfant');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner un enfant pour continuer';
+        });
+        return;
       }
 
       Future<Map<String, dynamic>> run() {
@@ -1019,151 +1546,347 @@ class _ModulesScreenState extends State<ModulesScreen>
     final successRate = current?['success_rate_percent'];
 
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.lg),
+      padding: const EdgeInsets.only(
+        left: AppTheme.lg,
+        right: AppTheme.lg,
+        bottom: AppTheme.lg,
+        top: AppTheme.sm,
+      ),
       children: [
         if (examItems.isNotEmpty)
-          InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Examen / Bulletin',
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+          _futuristicCard(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.sm),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryColor,
+                            AppTheme.primaryColor.withOpacity(0.80),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusMedium,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.30),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.md),
+                    Expanded(
+                      child: Text(
+                        'Examen / Bulletin',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTheme.md),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.20),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: currentId,
+                      items: examItems
+                          .map((e) {
+                            final id = (e['id'] is num)
+                                ? (e['id'] as num).toInt()
+                                : int.tryParse(e['id']?.toString() ?? '');
+                            final examen = e['examen']?.toString() ?? '';
+                            final per = e['periode']?.toString() ?? '';
+                            final date = _formatDate(
+                              e['date_examen']?.toString(),
+                            );
+                            final label = [
+                              if (examen.isNotEmpty) examen,
+                              if (per.isNotEmpty) per,
+                              if (date.isNotEmpty) date,
+                            ].join(' • ');
+                            return DropdownMenuItem<int>(
+                              value: id,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.md,
+                                  vertical: AppTheme.sm,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(
+                                        AppTheme.xs,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor
+                                            .withOpacity(0.10),
+                                        borderRadius: BorderRadius.circular(
+                                          AppTheme.radiusSmall,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.description,
+                                        size: 16,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppTheme.sm),
+                                    Expanded(
+                                      child: Text(
+                                        label.isNotEmpty ? label : 'Bulletin',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                      onChanged: _loading
+                          ? null
+                          : (value) async {
+                              if (value == null || value == currentId) return;
+                              await _reloadBulletinById(value);
+                            },
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                isExpanded: true,
-                value: currentId,
-                items: examItems
-                    .map((e) {
-                      final id = (e['id'] is num)
-                          ? (e['id'] as num).toInt()
-                          : int.tryParse(e['id']?.toString() ?? '');
-                      final examen = e['examen']?.toString() ?? '';
-                      final per = e['periode']?.toString() ?? '';
-                      final date = _formatDate(e['date_examen']?.toString());
-                      final label = [
-                        if (examen.isNotEmpty) examen,
-                        if (per.isNotEmpty) per,
-                        if (date.isNotEmpty) date,
-                      ].join(' • ');
-                      return DropdownMenuItem<int>(
-                        value: id,
-                        child: Text(label.isNotEmpty ? label : 'Bulletin'),
-                      );
-                    })
-                    .toList(growable: false),
-                onChanged: _loading
-                    ? null
-                    : (value) async {
-                        if (value == null || value == currentId) return;
-                        await _reloadBulletinById(value);
-                      },
-              ),
-            ),
+            padding: const EdgeInsets.all(AppTheme.lg),
           ),
         if (examItems.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(AppTheme.lg),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Text(
-              'Aucun examen disponible pour cet élève sur la période sélectionnée.',
-              style: Theme.of(context).textTheme.bodyMedium,
+          _futuristicCard(
+            Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.lg),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warningColor.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 48,
+                    color: AppTheme.warningColor,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.md),
+                Text(
+                  'Aucun examen disponible',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTheme.sm),
+                Text(
+                  'Aucun examen disponible pour cet élève sur la période sélectionnée.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         const SizedBox(height: AppTheme.lg),
 
         if (current == null)
-          Center(
-            child: Text(
-              'Aucun bulletin.',
-              style: Theme.of(context).textTheme.bodyMedium,
+          _futuristicCard(
+            Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.lg),
+                  decoration: BoxDecoration(
+                    color: AppTheme.infoColor.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: const Icon(
+                    Icons.description_outlined,
+                    size: 48,
+                    color: AppTheme.infoColor,
+                  ),
+                ),
+                const SizedBox(height: AppTheme.md),
+                Text(
+                  'Aucun bulletin',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           )
         else ...[
-          Container(
-            padding: const EdgeInsets.all(AppTheme.lg),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
-            ),
-            child: Column(
+          _futuristicCard(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.md),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.successColor,
+                            AppTheme.successColor.withOpacity(0.80),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusLarge,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.successColor.withOpacity(0.30),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.emoji_events,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.md),
                     Expanded(
-                      child: Text(
-                        exam?['nom']?.toString() ?? 'Bulletin',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            exam?['nom']?.toString() ?? 'Bulletin',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                          ),
+                          const SizedBox(height: AppTheme.xs),
+                          Text(
+                            [
+                                  periode?['nom']?.toString(),
+                                  if (exam != null)
+                                    _formatDate(exam['date']?.toString()),
+                                ]
+                                .whereType<String>()
+                                .where((s) => s.trim().isNotEmpty)
+                                .join(' • '),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
                       ),
                     ),
                     if (mention != null && mention.toString().trim().isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.md,
+                          horizontal: AppTheme.lg,
                           vertical: AppTheme.sm,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.10),
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.accentColor,
+                              AppTheme.accentColor.withOpacity(0.80),
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(
                             AppTheme.radiusLarge,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.accentColor.withOpacity(0.30),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          mention.toString(),
-                          style: Theme.of(context).textTheme.bodySmall,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: AppTheme.xs),
+                            Text(
+                              mention.toString(),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
                   ],
                 ),
-                const SizedBox(height: AppTheme.sm),
-                Text(
-                  [
-                        periode?['nom']?.toString(),
-                        if (exam != null) _formatDate(exam['date']?.toString()),
-                      ]
-                      .whereType<String>()
-                      .where((s) => s.trim().isNotEmpty)
-                      .join(' • '),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: AppTheme.md),
+                const SizedBox(height: AppTheme.lg),
                 Row(
                   children: [
                     Expanded(
-                      child: _kpiTile(
+                      child: _enhancedKpiTile(
                         context,
                         label: 'Moyenne',
                         value: moyenne == null
                             ? '-'
                             : _formatNoteValue(moyenne, scale: noteMax),
+                        icon: Icons.analytics,
+                        color: _getNoteColor(moyenne, noteMax),
                       ),
                     ),
                     const SizedBox(width: AppTheme.md),
                     Expanded(
-                      child: _kpiTile(
+                      child: _enhancedKpiTile(
                         context,
                         label: 'Classement',
                         value: classement?.toString() ?? '-',
+                        icon: Icons.leaderboard,
+                        color: AppTheme.infoColor,
                       ),
                     ),
                     const SizedBox(width: AppTheme.md),
                     Expanded(
-                      child: _kpiTile(
+                      child: _enhancedKpiTile(
                         context,
                         label: 'Réussite',
                         value: successRate == null
                             ? '-'
                             : '${successRate.toString()}%',
+                        icon: Icons.trending_up,
+                        color: _getSuccessColor(successRate),
                       ),
                     ),
                   ],
@@ -1171,37 +1894,58 @@ class _ModulesScreenState extends State<ModulesScreen>
 
                 if (topMatiere != null || bottomMatiere != null) ...[
                   const SizedBox(height: AppTheme.lg),
-                  Row(
-                    children: [
-                      if (topMatiere != null)
-                        Expanded(
-                          child: _highlightTile(
-                            context,
-                            title: 'Meilleure matière',
-                            subject: topMatiere['nom']?.toString() ?? '-',
-                            value: _formatNoteValue(
-                              topMatiere['note'],
-                              scale: noteMax,
+                  Container(
+                    padding: const EdgeInsets.all(AppTheme.md),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.surfaceColor,
+                          AppTheme.backgroundColor,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      border: Border.all(
+                        color: AppTheme.borderColor.withOpacity(0.50),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (topMatiere != null)
+                          Expanded(
+                            child: _enhancedHighlightTile(
+                              context,
+                              title: 'Meilleure matière',
+                              subject: AppFormatters.cleanSubjectName(
+                                topMatiere['nom']?.toString() ?? '-',
+                              ),
+                              value: _formatNoteValue(
+                                topMatiere['note'],
+                                scale: noteMax,
+                              ),
+                              color: AppTheme.successColor,
+                              icon: Icons.emoji_events,
                             ),
-                            color: Colors.green,
                           ),
-                        ),
-                      if (topMatiere != null && bottomMatiere != null)
-                        const SizedBox(width: AppTheme.md),
-                      if (bottomMatiere != null)
-                        Expanded(
-                          child: _highlightTile(
-                            context,
-                            title: 'À améliorer',
-                            subject: bottomMatiere['nom']?.toString() ?? '-',
-                            value: _formatNoteValue(
-                              bottomMatiere['note'],
-                              scale: noteMax,
+                        if (topMatiere != null && bottomMatiere != null)
+                          const SizedBox(width: AppTheme.md),
+                        if (bottomMatiere != null)
+                          Expanded(
+                            child: _enhancedHighlightTile(
+                              context,
+                              title: 'À améliorer',
+                              subject: AppFormatters.cleanSubjectName(
+                                bottomMatiere['nom']?.toString() ?? '-',
+                              ),
+                              value: _formatNoteValue(
+                                bottomMatiere['note'],
+                                scale: noteMax,
+                              ),
+                              color: AppTheme.warningColor,
+                              icon: Icons.trending_up,
                             ),
-                            color: Colors.orange,
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -1210,13 +1954,82 @@ class _ModulesScreenState extends State<ModulesScreen>
           const SizedBox(height: AppTheme.lg),
 
           if (matieres.isNotEmpty)
-            Text(
-              'Détails par matière',
-              style: Theme.of(context).textTheme.titleMedium,
+            _futuristicCard(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppTheme.sm),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.infoColor,
+                              AppTheme.infoColor.withOpacity(0.80),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusMedium,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.infoColor.withOpacity(0.30),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.menu_book,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.md),
+                      Expanded(
+                        child: Text(
+                          'Détails par matière',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.md,
+                          vertical: AppTheme.sm,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.infoColor,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusLarge,
+                          ),
+                        ),
+                        child: Text(
+                          '${matieres.length}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.lg,
+                vertical: AppTheme.md,
+              ),
             ),
           const SizedBox(height: AppTheme.md),
-          ...matieres.map((m) {
-            final matiere = m['matiere']?.toString() ?? 'Matière';
+          ...matieres.asMap().entries.map((entry) {
+            final index = entry.key;
+            final m = entry.value;
+            final matiere = AppFormatters.cleanSubjectName(
+              m['matiere']?.toString() ?? 'Matière',
+            );
             final note = m['note'];
             final max = m['note_max'] ?? noteMax;
             final coef = m['coefficient'];
@@ -1237,70 +2050,236 @@ class _ModulesScreenState extends State<ModulesScreen>
                 ? null
                 : progressValue.clamp(0.0, 1.0);
 
-            return Container(
+            final noteColor = _getNoteColor(note, max);
+
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 200 + (index * 40)),
+              curve: Curves.easeOut,
               margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(
+                  color: noteColor.withOpacity(0.30),
+                  width: 2,
+                ),
+                boxShadow: [
+                  // Glow effect principal basé sur la note
+                  BoxShadow(
+                    color: noteColor.withOpacity(0.40),
+                    blurRadius: 20,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 0),
+                  ),
+                  // Glow secondaire plus subtil
+                  BoxShadow(
+                    color: noteColor.withOpacity(0.25),
+                    blurRadius: 35,
+                    spreadRadius: 0.5,
+                    offset: const Offset(0, 0),
+                  ),
+                  // Ombre de profondeur
+                  AppTheme.shadowSmall,
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  onTap: () {
+                    // TODO: Add navigation to subject details
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            Text(
-                              matiere,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            if (coefLabel.isNotEmpty) ...[
-                              const SizedBox(height: AppTheme.sm),
-                              Text(
-                                'Coef $coefLabel',
-                                style: Theme.of(context).textTheme.bodySmall,
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.sm),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    noteColor.withOpacity(0.12),
+                                    noteColor.withOpacity(0.06),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                border: Border.all(
+                                  color: noteColor.withOpacity(0.25),
+                                  width: 1,
+                                ),
                               ),
-                            ],
+                              child: Icon(
+                                _getSubjectIcon(matiere),
+                                size: 20,
+                                color: noteColor,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    matiere,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                  ),
+                                  if (coefLabel.isNotEmpty) ...[
+                                    const SizedBox(height: AppTheme.xs),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.format_list_numbered,
+                                          size: 14,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        const SizedBox(width: AppTheme.xs),
+                                        Text(
+                                          'Coef $coefLabel',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color:
+                                                    AppTheme.textSecondaryColor,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.md,
+                                vertical: AppTheme.sm,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(
+                                  colors: [
+                                    noteColor,
+                                    noteColor.withOpacity(0.80),
+                                    noteColor.withOpacity(0.40),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusLarge,
+                                ),
+                                boxShadow: [
+                                  // Glow effect principal
+                                  BoxShadow(
+                                    color: noteColor.withOpacity(0.60),
+                                    blurRadius: 15,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 0),
+                                  ),
+                                  // Glow secondaire
+                                  BoxShadow(
+                                    color: noteColor.withOpacity(0.40),
+                                    blurRadius: 25,
+                                    spreadRadius: 0.5,
+                                    offset: const Offset(0, 0),
+                                  ),
+                                  // Ombre subtile pour profondeur
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                valueLabel.isNotEmpty ? valueLabel : '-',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.md,
-                          vertical: AppTheme.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(
-                            AppTheme.radiusLarge,
+                        if (clamped != null) ...[
+                          const SizedBox(height: AppTheme.md),
+                          Container(
+                            padding: const EdgeInsets.all(AppTheme.sm),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSmall,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Progression',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                    Text(
+                                      '${(clamped * 100).toStringAsFixed(0)}%',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: noteColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppTheme.sm),
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 800),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.radiusLarge,
+                                    ),
+                                    child: LinearProgressIndicator(
+                                      minHeight: 8,
+                                      value: clamped,
+                                      backgroundColor: AppTheme.borderColor
+                                          .withOpacity(0.20),
+                                      color: noteColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          valueLabel.isNotEmpty ? valueLabel : '-',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (clamped != null) ...[
-                    const SizedBox(height: AppTheme.md),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                      child: LinearProgressIndicator(
-                        minHeight: 8,
-                        value: clamped,
-                        backgroundColor: AppTheme.borderColor.withOpacity(0.35),
-                        color: AppTheme.primaryColor,
-                      ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
+                  ),
+                ),
               ),
             );
           }),
+          const SizedBox(height: 100), // Espace pour la barre de navigation
         ],
       ],
     );
@@ -1343,31 +2322,345 @@ class _ModulesScreenState extends State<ModulesScreen>
     );
   }
 
-  Widget _highlightTile(
+  Widget _enhancedKpiTile(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(AppTheme.md),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(color: color.withOpacity(0.20), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.xs),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: AppTheme.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.sm),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _enhancedHighlightTile(
     BuildContext context, {
     required String title,
     required String subject,
     required String value,
     required Color color,
+    required IconData icon,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(AppTheme.md),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.08), color.withOpacity(0.04)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withOpacity(0.20), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.bodySmall),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppTheme.xs),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: AppTheme.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: AppTheme.sm),
-          Text(subject, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: AppTheme.sm),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            subject,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimaryColor,
+            ),
+          ),
+          const SizedBox(height: AppTheme.xs),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Color _getNoteColor(dynamic note, dynamic noteMax) {
+    if (note == null) return AppTheme.textSecondaryColor;
+    final noteValue = note is num
+        ? note.toDouble()
+        : double.tryParse(note.toString());
+    final maxValue = noteMax is num
+        ? noteMax.toDouble()
+        : double.tryParse(noteMax?.toString() ?? '20') ?? 20.0;
+
+    if (noteValue == null) return AppTheme.textSecondaryColor;
+
+    final percentage = noteValue / maxValue;
+    if (percentage >= 0.8) return AppTheme.successColor;
+    if (percentage >= 0.6) return AppTheme.warningColor;
+    return AppTheme.errorColor;
+  }
+
+  Color _getSuccessColor(dynamic successRate) {
+    if (successRate == null) return AppTheme.textSecondaryColor;
+    final rate = successRate is num
+        ? successRate.toDouble()
+        : double.tryParse(successRate.toString());
+    if (rate == null) return AppTheme.textSecondaryColor;
+
+    if (rate >= 80) return AppTheme.successColor;
+    if (rate >= 60) return AppTheme.warningColor;
+    return AppTheme.errorColor;
+  }
+
+  IconData _getSubjectIcon(String subject) {
+    final s = subject.toLowerCase();
+    if (s.contains('math') || s.contains('maths')) return Icons.calculate;
+    if (s.contains('français') || s.contains('francais'))
+      return Icons.menu_book;
+    if (s.contains('anglais') || s.contains('english')) return Icons.language;
+    if (s.contains('physique') || s.contains('chimie')) return Icons.science;
+    if (s.contains('histoire') || s.contains('géographie')) return Icons.public;
+    if (s.contains('sport') || s.contains('eps')) return Icons.fitness_center;
+    if (s.contains('musique')) return Icons.music_note;
+    if (s.contains('art') || s.contains('dessin')) return Icons.palette;
+    if (s.contains('informatique') || s.contains('tech')) return Icons.computer;
+    return Icons.school;
+  }
+
+  Color _getGradeColor(dynamic value, {dynamic scale}) {
+    if (value == null) return AppTheme.textTertiaryColor;
+    final numValue = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString()) ?? 0;
+    final maxScale = scale is num
+        ? scale.toDouble()
+        : (scale != null ? double.tryParse(scale.toString()) : null) ?? 20;
+    final percentage = maxScale > 0 ? (numValue / maxScale) * 100 : 0;
+
+    if (percentage < 50) return const Color(0xFFE53935); // Rouge
+    if (percentage < 70) return const Color(0xFFFB8C00); // Orange
+    if (percentage < 85) return const Color(0xFFFDD835); // Jaune
+    return const Color(0xFF43A047); // Vert
+  }
+
+  Widget _buildEnhancedGradeBadge(
+    BuildContext context,
+    dynamic value, {
+    dynamic scale,
+    bool isExam = false,
+  }) {
+    final valueLabel = _formatNoteValue(value, scale: scale);
+    final gradeColor = _getGradeColor(value, scale: scale);
+    final bgColor = gradeColor.withOpacity(0.12);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: gradeColor.withOpacity(0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: gradeColor.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            valueLabel.isNotEmpty ? valueLabel : '-',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: gradeColor,
+              fontSize: 18,
+            ),
+          ),
+          if (isExam)
+            Text(
+              'EXAMEN',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: gradeColor.withOpacity(0.8),
+                fontSize: 8,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoteDetailChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    String? value,
+    Color? color,
+  }) {
+    if (value == null || value.isEmpty) return const SizedBox.shrink();
+    final chipColor = color ?? AppTheme.textSecondaryColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: chipColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: chipColor),
+          const SizedBox(width: 4),
+          Text(
+            '$label: $value',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: chipColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(
+    BuildContext context,
+    String title, {
+    String? subtitle,
+    IconData? icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTheme.md, top: AppTheme.sm),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: AppTheme.primaryColor),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getGradeComment(dynamic value, {dynamic scale}) {
+    if (value == null) return '';
+    final numValue = value is num
+        ? value.toDouble()
+        : double.tryParse(value.toString()) ?? 0;
+    final maxScale = scale is num
+        ? scale.toDouble()
+        : (scale != null ? double.tryParse(scale.toString()) : null) ?? 20;
+    final percentage = maxScale > 0 ? (numValue / maxScale) * 100 : 0;
+
+    if (percentage < 50) return 'À améliorer';
+    if (percentage < 70) return 'Moyen';
+    if (percentage < 85) return 'Bien';
+    if (percentage < 95) return 'Très bien';
+    return 'Excellent';
   }
 
   String _formatNoteValue(dynamic value, {dynamic scale}) {
@@ -1385,13 +2678,9 @@ class _ModulesScreenState extends State<ModulesScreen>
     return '$v/$s';
   }
 
-  String _formatPercent(dynamic v) {
-    if (v == null) return '';
-    if (v is num) {
-      final p = v.toDouble();
-      return '${p.toStringAsFixed(0)}%';
-    }
-    return '${v.toString()}%';
+  String _formatFraction(dynamic v, dynamic s) {
+    if (v == null || s == null) return '-';
+    return '$v/$s';
   }
 
   InputDecoration _glassDropdownDecoration(String label) {
@@ -1686,10 +2975,18 @@ class _ModulesScreenState extends State<ModulesScreen>
       final hasEstablishment = ctx.establishment != null;
       final eleveId = ctx.child?.id;
       if (!hasEstablishment) {
-        throw Exception('Veuillez sélectionner une école');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner une école pour continuer';
+        });
+        return;
       }
       if (eleveId == null) {
-        throw Exception('Veuillez sélectionner un enfant');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner un enfant pour continuer';
+        });
+        return;
       }
 
       Future<Map<String, dynamic>> run() {
@@ -1860,9 +3157,27 @@ class _ModulesScreenState extends State<ModulesScreen>
     final evaluations = _data?['evaluations'];
     if (evaluations is! Map) {
       return Center(
-        child: Text(
-          'Aucune donnée.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTheme.lg),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              ),
+              child: const Icon(
+                Icons.assignment_outlined,
+                size: 48,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: AppTheme.md),
+            Text(
+              'Aucune donnée.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
         ),
       );
     }
@@ -1927,6 +3242,8 @@ class _ModulesScreenState extends State<ModulesScreen>
       String title,
       List<Map<String, dynamic>> items,
       dynamic count,
+      Color sectionColor,
+      IconData sectionIcon,
     ) {
       if (items.isEmpty) return const SizedBox.shrink();
       final countLabel = (count is num)
@@ -1935,20 +3252,75 @@ class _ModulesScreenState extends State<ModulesScreen>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(
-              bottom: AppTheme.md,
-              top: AppTheme.lg,
+          Container(
+            margin: const EdgeInsets.only(bottom: AppTheme.md),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.lg,
+              vertical: AppTheme.md,
             ),
-            child: Text(
-              countLabel == null || countLabel.isEmpty
-                  ? title
-                  : '$title ($countLabel)',
-              style: Theme.of(context).textTheme.titleMedium,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  sectionColor.withOpacity(0.10),
+                  sectionColor.withOpacity(0.05),
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              border: Border.all(
+                color: sectionColor.withOpacity(0.20),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppTheme.sm),
+                  decoration: BoxDecoration(
+                    color: sectionColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Icon(sectionIcon, size: 20, color: sectionColor),
+                ),
+                const SizedBox(width: AppTheme.md),
+                Expanded(
+                  child: Text(
+                    countLabel == null || countLabel.isEmpty
+                        ? title
+                        : '$title ($countLabel)',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: sectionColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppTheme.md,
+                    vertical: AppTheme.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: sectionColor,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  ),
+                  child: Text(
+                    countLabel ?? '0',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          ...items.map((item) {
-            final subject = item['matiere']?.toString() ?? 'Matière';
+          ...items.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            final subject = AppFormatters.cleanSubjectName(
+              item['matiere']?.toString() ?? 'Matière',
+            );
             final type = item['type']?.toString() ?? '';
             final date = _formatDate(item['date']?.toString());
             final startTime = item['start_time']?.toString();
@@ -1980,64 +3352,225 @@ class _ModulesScreenState extends State<ModulesScreen>
                 ? ''
                 : _formatNoteValue(note, scale: noteMax);
 
-            return Container(
+            final hasGrade = noteLabel.isNotEmpty;
+            final isOverdue = title == 'Passé';
+            final isUpcoming = title == 'À venir';
+            final isCompleted = title == 'Terminés';
+
+            Color cardColor = Colors.white;
+            Color borderColor = AppTheme.borderColor;
+            Color statusColor = Colors.grey;
+            IconData statusIcon = Icons.assignment;
+
+            if (isOverdue) {
+              statusColor = AppTheme.errorColor;
+              statusIcon = Icons.assignment_late;
+              borderColor = AppTheme.errorColor.withOpacity(0.30);
+            } else if (isUpcoming) {
+              statusColor = AppTheme.warningColor;
+              statusIcon = Icons.pending;
+              borderColor = AppTheme.warningColor.withOpacity(0.30);
+            } else if (isCompleted) {
+              statusColor = AppTheme.successColor;
+              statusIcon = Icons.assignment_turned_in;
+              borderColor = AppTheme.successColor.withOpacity(0.30);
+            }
+
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 200 + (index * 50)),
+              curve: Curves.easeOut,
               margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardColor,
                 borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: borderColor, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withOpacity(0.10),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  AppTheme.shadowSmall,
+                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          subject,
-                          style: Theme.of(context).textTheme.titleMedium,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  onTap: () {
+                    // TODO: Add navigation to homework details
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppTheme.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(AppTheme.sm),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusMedium,
+                                ),
+                                border: Border.all(
+                                  color: statusColor.withOpacity(0.30),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                statusIcon,
+                                size: 20,
+                                color: statusColor,
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    subject,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                  ),
+                                  const SizedBox(height: AppTheme.xs),
+                                  if (type.isNotEmpty)
+                                    Text(
+                                      type,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: statusColor,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (hasGrade)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.md,
+                                  vertical: AppTheme.sm,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      AppTheme.successColor,
+                                      AppTheme.successColor.withOpacity(0.80),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusLarge,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.successColor.withOpacity(
+                                        0.30,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  noteLabel,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                      if (noteLabel.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppTheme.md,
-                            vertical: AppTheme.sm,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusLarge,
+                        if (date.isNotEmpty || timeLabel.isNotEmpty) ...[
+                          const SizedBox(height: AppTheme.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.sm,
+                              vertical: AppTheme.xs,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.backgroundColor,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSmall,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.schedule,
+                                  size: 14,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                                const SizedBox(width: AppTheme.xs),
+                                Text(
+                                  [
+                                    if (date.isNotEmpty) date,
+                                    if (timeLabel.isNotEmpty) timeLabel,
+                                  ].join(' • '),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Text(
-                            noteLabel,
-                            style: Theme.of(context).textTheme.titleSmall,
+                        ],
+                        if (observation.isNotEmpty) ...[
+                          const SizedBox(height: AppTheme.sm),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(AppTheme.sm),
+                            decoration: BoxDecoration(
+                              color: AppTheme.infoColor.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSmall,
+                              ),
+                              border: Border.all(
+                                color: AppTheme.infoColor.withOpacity(0.20),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: AppTheme.infoColor,
+                                ),
+                                const SizedBox(width: AppTheme.xs),
+                                Expanded(
+                                  child: Text(
+                                    observation,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppTheme.infoColor,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
+                        ],
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: AppTheme.sm),
-                  if (type.isNotEmpty)
-                    Text(type, style: Theme.of(context).textTheme.bodyMedium),
-                  if (date.isNotEmpty || timeLabel.isNotEmpty)
-                    Text(
-                      [
-                        if (date.isNotEmpty) date,
-                        if (timeLabel.isNotEmpty) timeLabel,
-                      ].join(' • '),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  if (observation.isNotEmpty) ...[
-                    const SizedBox(height: AppTheme.sm),
-                    Text(
-                      observation,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ],
+                ),
               ),
             );
           }),
@@ -2046,11 +3579,35 @@ class _ModulesScreenState extends State<ModulesScreen>
     }
 
     return ListView(
-      padding: const EdgeInsets.all(AppTheme.lg),
+      padding: const EdgeInsets.only(
+        left: AppTheme.lg,
+        right: AppTheme.lg,
+        bottom: AppTheme.lg,
+        top: AppTheme.sm,
+      ),
       children: [
-        section('À venir', upcoming, upcomingCount),
-        section('En retard', overdue, overdueCount),
-        section('Terminés', completed, completedCount),
+        section(
+          'À venir',
+          upcoming,
+          upcomingCount,
+          AppTheme.warningColor,
+          Icons.upcoming,
+        ),
+        section(
+          'Passé',
+          overdue,
+          overdueCount,
+          AppTheme.errorColor,
+          Icons.assignment_late,
+        ),
+        section(
+          'Terminés',
+          completed,
+          completedCount,
+          AppTheme.successColor,
+          Icons.check_circle,
+        ),
+        const SizedBox(height: 100), // Espace pour la barre de navigation
       ],
     );
   }
@@ -2180,7 +3737,8 @@ class _ModulesScreenState extends State<ModulesScreen>
 
   Widget _buildNotesBody(BuildContext context) {
     final notesRaw = _data?['notes'];
-    final examsRaw = _data?['exams'];
+    // L'API renvoie "exam_notes" (pas "exams"). On garde un fallback.
+    final examsRaw = _data?['exam_notes'] ?? _data?['exams'];
 
     final notes = (notesRaw is List)
         ? notesRaw
@@ -2200,209 +3758,342 @@ class _ModulesScreenState extends State<ModulesScreen>
         : const <Map<String, dynamic>>[];
 
     final stats = _data?['stats'];
-    final noteScale = _data?['note_scale'];
+    // Certaines réponses utilisent "note_max" au lieu de "note_scale".
+    final noteScale = _data?['note_scale'] ?? _data?['note_max'];
     final notesAvg = (stats is Map) ? stats['notes_average'] : null;
     final examsAvg = (stats is Map) ? stats['exam_notes_average'] : null;
 
     final hasAny = notes.isNotEmpty || exams.isNotEmpty;
     if (!hasAny) {
       return Center(
-        child: Text(
-          'Aucune note.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.school_outlined,
+              size: 64,
+              color: AppTheme.textTertiaryColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Aucune note disponible',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Les notes de l\'élève apparaîtront ici',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppTheme.textTertiaryColor,
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(AppTheme.lg),
-      children: [
-        if (notesAvg != null || examsAvg != null)
-          Container(
-            padding: const EdgeInsets.all(AppTheme.lg),
-            margin: const EdgeInsets.only(bottom: AppTheme.lg),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-              border: Border.all(color: AppTheme.borderColor),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return SafeArea(
+      top: true,
+      bottom: false,
+      child: ListView(
+        padding: EdgeInsets.only(
+          left: AppTheme.lg,
+          right: AppTheme.lg,
+          top: AppTheme.lg,
+          // Espace pour la barre de navigation du bas
+          bottom: AppTheme.lg + 140 + bottomInset,
+        ),
+        children: [
+          // Carte des moyennes améliorée
+          if (notesAvg != null || examsAvg != null)
+            _futuristicCard(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.analytics_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Moyennes générales',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTheme.md),
+                  Row(
+                    children: [
+                      if (notesAvg != null)
+                        Expanded(
+                          child: _buildAverageChip(
+                            context,
+                            label: 'Les notes',
+                            value: _formatNoteValue(notesAvg, scale: noteScale),
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      if (notesAvg != null && examsAvg != null)
+                        const SizedBox(width: AppTheme.md),
+                      if (examsAvg != null)
+                        Expanded(
+                          child: _buildAverageChip(
+                            context,
+                            label: 'Examens',
+                            value: _formatNoteValue(examsAvg, scale: noteScale),
+                            color: AppTheme.secondaryColor,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(AppTheme.lg),
             ),
+          if (notesAvg != null || examsAvg != null)
+            const SizedBox(height: AppTheme.lg),
+
+          // Notes de classe
+          if (notes.isNotEmpty) ...[
+            _buildSectionHeader(
+              context,
+              'Notes de classe',
+              subtitle: '${notes.length} note${notes.length > 1 ? 's' : ''}',
+              icon: Icons.edit_note,
+            ),
+            ...notes.map(
+              (item) => _buildEnhancedNoteCard(
+                context,
+                item,
+                noteScale,
+                isExam: false,
+              ),
+            ),
+            const SizedBox(height: AppTheme.lg),
+          ],
+
+          // Notes d'examen
+          if (exams.isNotEmpty) ...[
+            _buildSectionHeader(
+              context,
+              'Notes d\'examen',
+              subtitle: '${exams.length} examen${exams.length > 1 ? 's' : ''}',
+              icon: Icons.assignment,
+            ),
+            ...exams.map(
+              (item) => _buildEnhancedNoteCard(
+                context,
+                item,
+                noteScale,
+                isExam: true,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAverageChip(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedNoteCard(
+    BuildContext context,
+    Map<String, dynamic> item,
+    dynamic noteScale, {
+    required bool isExam,
+  }) {
+    final subject = AppFormatters.cleanSubjectName(
+      item['matiere']?.toString() ?? 'Matière',
+    );
+    final date = _formatDate(item['date']?.toString());
+    final value = item['value'];
+    final evaluation = item['evaluation'];
+    final evalTitle = (evaluation is Map)
+        ? (evaluation['title']?.toString() ?? '')
+        : '';
+    final evalType = (evaluation is Map)
+        ? (evaluation['type']?.toString() ?? '')
+        : '';
+    final coef = (evaluation is Map) ? evaluation['coefficient'] : null;
+    final commentaire = (evaluation is Map)
+        ? (evaluation['commentaire']?.toString() ?? '')
+        : '';
+
+    final gradeColor = _getGradeColor(value, scale: noteScale);
+    final gradeComment = _getGradeComment(value, scale: noteScale);
+    final coefLabel = (coef == null)
+        ? ''
+        : (coef is num && coef % 1 == 0)
+        ? coef.toInt().toString()
+        : coef.toString();
+
+    return _futuristicCard(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Badge de note avec code couleur
+          _buildEnhancedGradeBadge(
+            context,
+            value,
+            scale: noteScale,
+            isExam: isExam,
+          ),
+          const SizedBox(width: AppTheme.lg),
+          // Informations de la note
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Matière
                 Text(
-                  'Moyennes',
-                  style: Theme.of(context).textTheme.titleMedium,
+                  subject,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: AppTheme.sm),
-                if (notesAvg != null)
-                  Text(
-                    'Notes: ${_formatNoteValue(notesAvg, scale: noteScale)}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                const SizedBox(height: 6),
+
+                // Commentaire de performance
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
                   ),
-                if (examsAvg != null)
-                  Text(
-                    'Examens: ${_formatNoteValue(examsAvg, scale: noteScale)}',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  decoration: BoxDecoration(
+                    color: gradeColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
                   ),
+                  child: Text(
+                    gradeComment,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: gradeColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Titre de l'évaluation
+                if (evalTitle.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      evalTitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+
+                // Commentaire du professeur
+                if (commentaire.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4, bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.comment_outlined,
+                          size: 14,
+                          color: Colors.amber.shade700,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            commentaire,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.amber.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Chips d'informations (type, coefficient, date)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    if (evalType.isNotEmpty)
+                      _buildNoteDetailChip(
+                        context,
+                        icon: Icons.category_outlined,
+                        label: 'Type',
+                        value: evalType,
+                        color: AppTheme.primaryColor,
+                      ),
+                    if (coefLabel.isNotEmpty)
+                      _buildNoteDetailChip(
+                        context,
+                        icon: Icons.scale_outlined,
+                        label: 'Coef',
+                        value: coefLabel,
+                        color: Colors.blue,
+                      ),
+                    if (date.isNotEmpty)
+                      _buildNoteDetailChip(
+                        context,
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Date',
+                        value: date,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
-
-        if (notes.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppTheme.md),
-            child: Text(
-              'Notes de classe',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          ...notes.map((item) {
-            final subject = item['matiere']?.toString() ?? 'Matière';
-            final date = _formatDate(item['date']?.toString());
-            final value = item['value'];
-            final evaluation = item['evaluation'];
-            final evalTitle = (evaluation is Map)
-                ? (evaluation['title']?.toString() ?? '')
-                : '';
-            final evalType = (evaluation is Map)
-                ? (evaluation['type']?.toString() ?? '')
-                : '';
-            final coef = (evaluation is Map) ? evaluation['coefficient'] : null;
-
-            final valueLabel = _formatNoteValue(value, scale: noteScale);
-            final coefLabel = (coef == null)
-                ? ''
-                : (coef is num && coef % 1 == 0)
-                ? coef.toInt().toString()
-                : coef.toString();
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.md,
-                      vertical: AppTheme.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    ),
-                    child: Text(
-                      valueLabel.isNotEmpty ? valueLabel : '-',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          subject,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppTheme.sm),
-                        if (evalTitle.isNotEmpty)
-                          Text(
-                            evalTitle,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        if (evalType.isNotEmpty || coefLabel.isNotEmpty)
-                          Text(
-                            [
-                              if (evalType.isNotEmpty) evalType,
-                              if (coefLabel.isNotEmpty) 'Coef $coefLabel',
-                            ].join(' • '),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        if (date.isNotEmpty)
-                          Text(
-                            date,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: AppTheme.lg),
         ],
-
-        if (exams.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppTheme.md),
-            child: Text(
-              'Notes d\'examen',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          ...exams.map((item) {
-            final subject = item['matiere']?.toString() ?? 'Matière';
-            final date = _formatDate(item['date']?.toString());
-            final value = item['value'];
-            final valueLabel = _formatNoteValue(value, scale: noteScale);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: AppTheme.md),
-              padding: const EdgeInsets.all(AppTheme.lg),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppTheme.md,
-                      vertical: AppTheme.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                    ),
-                    child: Text(
-                      valueLabel.isNotEmpty ? valueLabel : '-',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(width: AppTheme.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          subject,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        if (date.isNotEmpty) ...[
-                          const SizedBox(height: AppTheme.sm),
-                          Text(
-                            date,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ],
+      ),
+      padding: const EdgeInsets.all(AppTheme.lg),
+      margin: const EdgeInsets.only(bottom: AppTheme.md),
     );
   }
 }

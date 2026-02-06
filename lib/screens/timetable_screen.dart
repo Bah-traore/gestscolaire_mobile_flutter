@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config/app_theme.dart';
+import '../models/timetable_models.dart';
+import '../providers/auth_provider.dart';
 import '../providers/parent_context_provider.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/children_service.dart';
 import '../services/establishments_service.dart';
 import '../services/timetable_service.dart';
-import '../providers/auth_provider.dart';
+import '../utils/formatters.dart';
+import '../utils/user_friendly_errors.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/error_widget.dart' as custom;
-import '../models/timetable_models.dart';
-import '../utils/user_friendly_errors.dart';
 import 'package:dio/dio.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'dart:async';
@@ -187,10 +188,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
       final tenantId = ctx.establishment?.tenantId;
       final eleveId = ctx.child?.id;
       if (tenantId == null) {
-        throw Exception('Veuillez sélectionner une école');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner une école pour continuer';
+        });
+        return;
       }
       if (eleveId == null) {
-        throw Exception('Veuillez sélectionner un enfant');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner un enfant pour continuer';
+        });
+        return;
       }
 
       final start = _startOfMonth(focused);
@@ -524,10 +533,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
       final tenantId = ctx.establishment?.tenantId;
       final eleveId = ctx.child?.id;
       if (tenantId == null) {
-        throw Exception('Veuillez sélectionner une école');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner une école pour continuer';
+        });
+        return;
       }
       if (eleveId == null) {
-        throw Exception('Veuillez sélectionner un enfant');
+        setState(() {
+          _loading = false;
+          _error = 'Veuillez sélectionner un enfant pour continuer';
+        });
+        return;
       }
 
       TimetableResponse resp;
@@ -818,7 +835,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  e.matiere ?? e.title,
+                  AppFormatters.cleanSubjectName(e.matiere ?? e.title),
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
