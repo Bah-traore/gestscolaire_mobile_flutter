@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -308,5 +309,39 @@ class UpdateInfo {
     if (size < 1024) return '$size B';
     if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
     return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  /// Convertit en Map JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'version': version,
+      'buildNumber': buildNumber,
+      'downloadUrl': downloadUrl,
+      'releaseNotes': releaseNotes,
+      'isMandatory': isMandatory,
+      'size': size,
+    };
+  }
+
+  /// Convertit en String JSON
+  String toJsonString() {
+    return jsonEncode(toJson());
+  }
+
+  /// Crée depuis un Map JSON
+  factory UpdateInfo.fromJson(Map<String, dynamic> json) {
+    return UpdateInfo(
+      version: json['version'] ?? '',
+      buildNumber: json['buildNumber'] ?? 0,
+      downloadUrl: json['downloadUrl'] ?? '',
+      releaseNotes: json['releaseNotes'] ?? '',
+      isMandatory: json['isMandatory'] ?? false,
+      size: json['size'] ?? 0,
+    );
+  }
+
+  /// Crée depuis une String JSON
+  factory UpdateInfo.fromJsonString(String jsonString) {
+    return UpdateInfo.fromJson(jsonDecode(jsonString));
   }
 }

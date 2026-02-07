@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/update_notification_banner.dart';
 import '../main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateChecker {
   static GlobalKey<NavigatorState> get navigatorKey => MyApp.navigatorKey;
+  static const String _pendingUpdateKey = 'pending_update_info';
+  static const String _updateCheckInitializedKey = 'update_check_initialized';
 
   /// Initialise le vérificateur de mises à jour
   static Future<void> initialize() async {
@@ -17,6 +20,9 @@ class UpdateChecker {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       print('[UPDATE_CHECKER] App construite, démarrage vérification...');
 
+      // Vérifier si une mise à jour est en attente
+      _checkPendingUpdate();
+
       // Vérifier si c'est la première fois
       _checkFirstTimeAndRun();
 
@@ -25,13 +31,49 @@ class UpdateChecker {
     });
   }
 
+  /// Vérifie si une mise à jour est en attente et l'affiche
+  static Future<void> _checkPendingUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pendingUpdateJson = prefs.getString(_pendingUpdateKey);
+
+    if (pendingUpdateJson != null) {
+      print('[UPDATE_CHECKER] Mise à jour en attente trouvée');
+      try {
+        final updateInfo = UpdateInfo.fromJsonString(pendingUpdateJson);
+        // Afficher la bannière pour la mise à jour en attente (après 3 secondes)
+        Future.delayed(const Duration(seconds: 3), () {
+          _showUpdateNotification(updateInfo);
+        });
+      } catch (e) {
+        print(
+          '[UPDATE_CHECKER] Erreur lors de la lecture de la mise à jour en attente: $e',
+        );
+        await prefs.remove(_pendingUpdateKey);
+      }
+    }
+  }
+
+  /// Sauvegarde une mise à jour comme en attente
+  static Future<void> _savePendingUpdate(UpdateInfo updateInfo) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingUpdateKey, updateInfo.toJsonString());
+    print('[UPDATE_CHECKER] Mise à jour sauvegardée comme en attente');
+  }
+
+  /// Efface la mise à jour en attente (appelé après installation réussie)
+  static Future<void> clearPendingUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pendingUpdateKey);
+    print('[UPDATE_CHECKER] Mise à jour en attente effacée');
+  }
+
   static Future<void> _checkFirstTimeAndRun() async {
     final prefs = await SharedPreferences.getInstance();
-    final hasCheckedBefore = prefs.getBool('update_check_initialized') ?? false;
+    final hasCheckedBefore = prefs.getBool(_updateCheckInitializedKey) ?? false;
 
     if (!hasCheckedBefore) {
       print('[UPDATE_CHECKER] Premier démarrage - vérification forcée');
-      await prefs.setBool('update_check_initialized', true);
+      await prefs.setBool(_updateCheckInitializedKey, true);
       // Vérifier immédiatement avec forceCheck
       await _checkForUpdatesOnStartup(forceCheck: true);
     } else {
@@ -56,8 +98,10 @@ class UpdateChecker {
     );
 
     if (updateInfo != null) {
-      print('[UPDATE_CHECKER] Mise à jour trouvée, affichage du dialogue...');
-      _showUpdateDialog(updateInfo);
+      print('[UPDATE_CHECKER] Mise à jour trouvée, sauvegarde et affichage...');
+      // Sauvegarder la mise à jour comme en attente
+      await _savePendingUpdate(updateInfo);
+      _showUpdateNotification(updateInfo, isPending: false);
     } else {
       print('[UPDATE_CHECKER] Aucune mise à jour trouvée');
     }
@@ -69,15 +113,78 @@ class UpdateChecker {
       final updateInfo = await updateService.checkForUpdates();
 
       if (updateInfo != null) {
-        _showUpdateDialog(updateInfo);
+        _showUpdateNotification(updateInfo, isPending: false);
       }
     }).listen((_) {});
   }
 
-  static void _showUpdateDialog(UpdateInfo updateInfo) {
-    print('[UPDATE_CHECKER] Tentative affichage dialogue...');
+  /// Affiche une notification bannière animée pour la mise à jour
+  static void _showUpdateNotification(
+    UpdateInfo updateInfo, {
+    bool isPending = false,
+  }) {
+    print(
+      '[UPDATE_CHECKER] Tentative affichage notification... (pending: $isPending)',
+    );
 
     // Attendre que le navigator soit prêt avec retry
+    _showNotificationWithRetry(updateInfo, attempts: 0, isPending: isPending);
+  }
+
+  static void _showNotificationWithRetry(
+    UpdateInfo updateInfo, {
+    required int attempts,
+    bool isPending = false,
+  }) {
+    if (attempts > 10) {
+      print(
+        '[UPDATE_CHECKER] Échec après 10 tentatives - navigator pas disponible',
+      );
+      return;
+    }
+
+    final context = navigatorKey.currentContext;
+
+    if (context == null) {
+      print(
+        '[UPDATE_CHECKER] Contexte null, retry dans 500ms (tentative ${attempts + 1})',
+      );
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _showNotificationWithRetry(
+          updateInfo,
+          attempts: attempts + 1,
+          isPending: isPending,
+        );
+      });
+      return;
+    }
+
+    print('[UPDATE_CHECKER] Contexte trouvé, affichage notification');
+
+    // Si mise à jour obligatoire, afficher directement le dialog
+    if (updateInfo.isMandatory) {
+      _showUpdateDialog(updateInfo);
+      return;
+    }
+
+    // Afficher la bannière animée pour les mises à jour optionnelles
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.transparent,
+      builder: (context) => Align(
+        alignment: Alignment.topCenter,
+        child: UpdateNotificationBanner(
+          updateInfo: updateInfo,
+          onDismiss: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  /// Affiche le dialog de mise à jour (pour les mises à jour obligatoires)
+  static void _showUpdateDialog(UpdateInfo updateInfo) {
+    print('[UPDATE_CHECKER] Affichage dialog obligatoire...');
     _showDialogWithRetry(updateInfo, attempts: 0);
   }
 
@@ -87,7 +194,7 @@ class UpdateChecker {
   }) {
     if (attempts > 10) {
       print(
-        '[UPDATE_CHECKER]  Échec après 10 tentatives - navigator pas disponible',
+        '[UPDATE_CHECKER] Échec après 10 tentatives - navigator pas disponible',
       );
       return;
     }
@@ -104,7 +211,7 @@ class UpdateChecker {
       return;
     }
 
-    print('[UPDATE_CHECKER]  Contexte trouvé, affichage du dialogue');
+    print('[UPDATE_CHECKER] Contexte trouvé, affichage du dialogue');
 
     showDialog(
       context: context,
@@ -126,7 +233,7 @@ class UpdateChecker {
   static void showUpdateDialogFromNotification(UpdateInfo updateInfo) {
     // Attendre que le navigator soit prêt
     Future.delayed(const Duration(milliseconds: 500), () {
-      _showUpdateDialog(updateInfo);
+      _showUpdateNotification(updateInfo);
     });
   }
 
@@ -155,7 +262,7 @@ class UpdateChecker {
       Navigator.of(context).pop();
 
       if (updateInfo != null) {
-        _showUpdateDialog(updateInfo);
+        _showUpdateNotification(updateInfo);
         return true;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -193,8 +300,8 @@ class UpdateChecker {
 
     if (updateInfo != null) {
       print(' Update found: v${updateInfo.version}');
-      // Afficher le dialogue si possible
-      _showUpdateDialog(updateInfo);
+      // Afficher la notification si possible
+      _showUpdateNotification(updateInfo, isPending: false);
     } else {
       print(' No update available');
     }

@@ -2,7 +2,7 @@
 class AppConstants {
   // Messages
   static const String appName = 'GestScolaire';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
   
   // Erreurs
   static const String errorGeneral = 'Une erreur inattendue est survenue';

@@ -505,7 +505,7 @@ class ParentProfileScreen extends StatelessWidget {
                     ),
                   ),
                   title: const Text('Vérifier les mises à jour'),
-                  subtitle: const Text('Tester le système de mise à jour.'),
+                  subtitle: const Text('le système de mise à jour.'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => UpdateChecker.testUpdateCheck(),
                 ),

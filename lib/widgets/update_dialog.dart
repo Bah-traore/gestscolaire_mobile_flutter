@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/update_service.dart';
+import '../services/update_checker.dart';
 
 class UpdateDialog extends StatefulWidget {
   final UpdateInfo updateInfo;
@@ -396,6 +397,9 @@ class _UpdateDialogState extends State<UpdateDialog>
         });
 
         if (installed) {
+          // Effacer la mise à jour en attente
+          await UpdateChecker.clearPendingUpdate();
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

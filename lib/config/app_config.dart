@@ -5,8 +5,8 @@ class AppConfig {
   static const String apiBaseUrl = 'https://apps.gestscolaire.com/api/';
   // App Info
   static const String appName = 'GestScolaire';
-  static const String appVersion = '1.0.0';
-  static const String appBuildNumber = '1';
+  static const String appVersion = '1.0.1';
+  static const String appBuildNumber = '2';
 
   // Feature Flags
   static const bool enableOfflineMode = true;

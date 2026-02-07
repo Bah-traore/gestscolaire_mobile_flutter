@@ -146,6 +146,11 @@ void main() async {
         '/parent/fcm/register/',
         data: {'token': token, 'platform': 'flutter'},
       );
+
+      // S'abonner aux topics pour les campagnes Firebase
+      await messaging.subscribeToTopic('all_parents');
+      await messaging.subscribeToTopic('gestscolaire_updates');
+      print('[FCM] Subscribed to topics: all_parents, gestscolaire_updates');
     }
 
     messaging.onTokenRefresh.listen((newToken) async {
@@ -155,12 +160,16 @@ void main() async {
           '/parent/fcm/register/',
           data: {'token': newToken, 'platform': 'flutter'},
         );
-      } catch (_) {
-        // ignore
+        // Réabonner aux topics avec le nouveau token
+        await messaging.subscribeToTopic('all_parents');
+        await messaging.subscribeToTopic('gestscolaire_updates');
+        print('[FCM] Token refreshed, re-subscribed to topics');
+      } catch (e) {
+        print('[FCM] Error refreshing token: $e');
       }
     });
-  } catch (_) {
-    // ignore
+  } catch (e) {
+    print('[FCM] Initialization error: $e');
   }
 
   runApp(MyApp(apiService: apiService, authService: authService));
