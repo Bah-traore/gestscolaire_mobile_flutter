@@ -20,6 +20,8 @@ import 'services/auth_service.dart';
 import 'package:app_links/app_links.dart';
 import 'screens/auth/reset_password_screen.dart';
 import 'dart:async';
+import 'services/update_checker.dart';
+import 'services/update_service.dart';
 
 const AndroidNotificationChannel _defaultAndroidChannel =
     AndroidNotificationChannel(
@@ -94,9 +96,31 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   // Afficher une notification locale quand un message arrive en foreground
+  // Gérer spécifiquement les notifications de mise à jour
   FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
     try {
-      await _showLocalNotification(message);
+      final data = message.data;
+
+      // Vérifier si c'est une notification de mise à jour
+      if (data['type'] == 'app_update') {
+        // Construire UpdateInfo à partir des données FCM
+        final updateInfo = UpdateInfo(
+          version: data['version'] ?? '',
+          buildNumber: int.tryParse(data['build_number'] ?? '0') ?? 0,
+          downloadUrl: data['download_url'] ?? '',
+          releaseNotes:
+              message.notification?.body ?? 'Nouvelle version disponible',
+          isMandatory: data['is_mandatory'] == 'true',
+          size:
+              0, // Taille inconnue depuis FCM, sera récupérée lors du téléchargement
+        );
+
+        // Afficher le dialogue de mise à jour directement
+        UpdateChecker.showUpdateDialogFromNotification(updateInfo);
+      } else {
+        // Notification normale
+        await _showLocalNotification(message);
+      }
     } catch (_) {
       // ignore
     }
@@ -107,6 +131,9 @@ void main() async {
   final authService = AuthService(apiService);
   apiService.attachAuthService(authService);
   await authService.init();
+
+  // Initialiser le vérificateur de mises à jour
+  await UpdateChecker.initialize();
 
   // Initialiser FCM (best-effort)
   try {

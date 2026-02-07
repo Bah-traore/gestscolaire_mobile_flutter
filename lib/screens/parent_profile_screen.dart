@@ -6,6 +6,7 @@ import '../config/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../utils/validators.dart';
 import '../widgets/custom_text_field.dart';
+import '../services/update_checker.dart';
 
 class ParentProfileScreen extends StatelessWidget {
   const ParentProfileScreen({super.key});
@@ -485,6 +486,29 @@ class ParentProfileScreen extends StatelessWidget {
                       : () => _showChangePasswordDialog(context),
                 ),
                 const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                      color: Colors.orange.withOpacity(0.10),
+                      border: Border.all(
+                        color: Colors.orange.withOpacity(0.18),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.system_update,
+                      size: 20,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  title: const Text('Vérifier les mises à jour'),
+                  subtitle: const Text('Tester le système de mise à jour.'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => UpdateChecker.testUpdateCheck(),
+                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Accès au répertoire de téléchargement externe -->
+    <external-path name="downloads" path="Download/" />
+    <!-- Accès au répertoire de cache externe -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- Accès au répertoire de fichiers externes -->
+    <external-files-path name="external_files" path="." />
+    <!-- Accès au répertoire de cache -->
+    <cache-path name="cache" path="." />
+    <!-- Accès au répertoire de fichiers de l'application -->
+    <files-path name="files" path="." />
+</paths>

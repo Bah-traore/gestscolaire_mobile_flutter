@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'auth_service.dart';
 import '../config/app_config.dart';
-import '../utils/session_expired_handler.dart';
 import 'performance_service.dart';
 
 /// Service API centralisé avec optimisations de performance
@@ -104,13 +103,13 @@ class ApiService {
     if (requestTime != null) {
       final startTime = DateTime.parse(requestTime as String);
       final duration = DateTime.now().difference(startTime).inMilliseconds;
-      
+
       // Enregistrer les performances
       _performanceMonitor.recordResponseTime(
         response.requestOptions.path,
         duration,
       );
-      
+
       if (AppConfig.enableDebugLogging) {
         _logger.d(
           'RESPONSE: ${response.statusCode} ${response.requestOptions.path} (${duration}ms)',
@@ -122,9 +121,52 @@ class ApiService {
       );
     }
 
-
     if (AppConfig.enableDebugLogging) {
       _logger.d('Data: ${response.data}');
+    }
+
+    // Vérifier les erreurs métier TOKEN_EXPIRED - essayer refresh automatique
+    try {
+      final data = _validateAndParseResponse(response);
+      if (data is Map &&
+          data['success'] == false &&
+          data['code'] == 'TOKEN_EXPIRED') {
+        _logger.w(' TOKEN_EXPIRED détecté - tentative de refresh automatique');
+
+        // Essayer de rafraîchir le token silencieusement
+        if (_authService != null && !_refreshing) {
+          _refreshing = true;
+          try {
+            final refreshed = await _authService!.refreshAccessToken();
+            if (refreshed) {
+              _logger.i(' Token rafraîchi avec succès - session maintenue');
+              // Retenter la requête avec le nouveau token
+              final newToken = _authService!.token;
+              if (newToken != null && newToken.isNotEmpty) {
+                setAuthToken(newToken);
+                // Créer une copie des options pour modification
+                final retryOptions = response.requestOptions.copyWith(
+                  headers: Map<String, dynamic>.from(
+                    response.requestOptions.headers,
+                  )..['Authorization'] = 'Bearer $newToken',
+                );
+                final retryResponse = await _dio.fetch(retryOptions);
+                return handler.resolve(retryResponse);
+              }
+            }
+          } catch (refreshError) {
+            _logger.e(' Échec du refresh: $refreshError');
+          } finally {
+            _refreshing = false;
+          }
+        }
+
+        // Si refresh échoue ou pas de authService, on garde la session
+        // et on laisse l'app gérer l'erreur normalement
+        _logger.w(' Impossible de rafraîchir, mais session conservée');
+      }
+    } catch (e) {
+      // Ignorer les erreurs de parsing ici
     }
 
     return handler.next(response);
@@ -140,16 +182,16 @@ class ApiService {
     final alreadyRetried = requestOptions.extra['retried'] == true;
 
     if (AppConfig.enableDebugLogging) {
-      _logger.e('⛔ Request failed: ${requestOptions.path} - ${error.message}');
-      _logger.e('⛔ ERROR: ${error.error}');
-      _logger.e('⛔ Status Code: $status');
-      _logger.e('⛔ Response: ${error.response?.data}');
+      _logger.e(' Request failed: ${requestOptions.path} - ${error.message}');
+      _logger.e(' ERROR: ${error.error}');
+      _logger.e(' Status Code: $status');
+      _logger.e(' Response: ${error.response?.data}');
     }
 
     // Gérer les erreurs de formatage JSON
     if (error.error is FormatException) {
       _logger.e('⛠️ JSON Format Error: ${error.error}');
-      
+
       // Créer une erreur plus descriptive
       final customError = DioException(
         requestOptions: requestOptions,
@@ -157,7 +199,7 @@ class ApiService {
         message: 'Server returned invalid JSON format',
         type: DioExceptionType.unknown,
       );
-      
+
       return handler.next(customError);
     }
 
@@ -165,54 +207,56 @@ class ApiService {
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
-      _logger.w('⏰ Timeout: ${error.type} for ${requestOptions.path}');
-      
+      _logger.w(' Timeout: ${error.type} for ${requestOptions.path}');
+
       final timeoutError = DioException(
         requestOptions: requestOptions,
         error: error.error,
         message: 'Request timeout - please check your connection',
         type: error.type,
       );
-      
+
       return handler.next(timeoutError);
     }
 
     // Gérer les erreurs de connexion réseau
     if (error.type == DioExceptionType.connectionError) {
-      _logger.w('🌐 Connection Error: ${error.message}');
-      
+      _logger.w(' Connection Error: ${error.message}');
+
       final connectionError = DioException(
         requestOptions: requestOptions,
         error: error.error,
         message: 'Network connection error - please check your internet',
         type: error.type,
       );
-      
+
       return handler.next(connectionError);
     }
 
-    final bool isRefreshEndpoint = requestOptions.path.contains('/auth/refresh');
+    final bool isRefreshEndpoint = requestOptions.path.contains(
+      '/auth/refresh',
+    );
 
-    // Gérer le cas où le refresh token est aussi expiré (session vraiment expirée)
+    // Gérer le cas où le refresh token est aussi expiré - ne pas déconnecter automatiquement
     if (status == 401 && isRefreshEndpoint) {
-      _logger.w('Session expirée - impossible de rafraîchir le token');
-      if (_authService != null) {
-        await SessionExpiredHandler.handleSessionExpired(_authService!);
-      }
+      _logger.w(
+        ' Refresh token expiré, mais session conservée (pas de déconnexion auto)',
+      );
+      // Ne pas déconnecter automatiquement - laisser l'utilisateur connecté
       return handler.next(error);
     }
 
-    // Si après tentative de refresh on a toujours 401, la session est expirée
+    // Si après tentative de refresh on a toujours 401, ne pas déconnecter auto
     if (status == 401 && alreadyRetried) {
-      _logger.w('Session expirée après tentative de refresh');
-      if (_authService != null) {
-        await SessionExpiredHandler.handleSessionExpired(_authService!);
-      }
+      _logger.w(
+        ' Refresh échoué, mais session conservée (pas de déconnexion auto)',
+      );
       return handler.next(error);
     }
 
     // Tenter de rafraîchir le token pour les erreurs 401
-    final shouldAttemptRefresh = status == 401 &&
+    final shouldAttemptRefresh =
+        status == 401 &&
         _authToken != null &&
         _authService != null &&
         !isRefreshEndpoint;
@@ -237,14 +281,16 @@ class ApiService {
           final response = await _dio.fetch(requestOptions);
           return handler.resolve(response);
         } else {
-          // Le refresh a échoué, déconnecter l'utilisateur
-          _logger.w('Échec du refresh token - session expirée');
-          await SessionExpiredHandler.handleSessionExpired(_authService!);
+          // Le refresh a échoué, mais on garde la session active
+          _logger.w(
+            ' Refresh échoué, session conservée (pas de déconnexion auto)',
+          );
         }
       } catch (_) {
-        // Erreur lors du refresh, déconnecter l'utilisateur
-        _logger.w('Erreur lors du refresh token - session expirée');
-        await SessionExpiredHandler.handleSessionExpired(_authService!);
+        // Erreur lors du refresh, mais on garde la session active
+        _logger.w(
+          ' Erreur refresh, session conservée (pas de déconnexion auto)',
+        );
       } finally {
         _refreshing = false;
       }
@@ -273,7 +319,7 @@ class ApiService {
     int maxRetries = 2,
   }) async {
     final cacheKey = 'GET:$endpoint:${queryParameters?.toString() ?? ''}';
-    
+
     return _requestManager.execute(
       cacheKey,
       () async {
@@ -297,11 +343,11 @@ class ApiService {
     int maxRetries,
   ) async {
     int attempts = 0;
-    
+
     while (attempts <= maxRetries) {
       try {
         final startTime = DateTime.now();
-        
+
         // Utiliser responseType.plain pour éviter le parsing automatique
         var response = await _dio.get(
           endpoint,
@@ -311,27 +357,28 @@ class ApiService {
 
         // Valider et parser la réponse
         final validatedData = _validateAndParseResponse(response);
-        
+
         if (fromJson != null) {
           return fromJson(validatedData);
         }
 
         return validatedData as T;
-        
       } catch (e) {
         attempts++;
-        
+
         // Si c'est une erreur de formatage et qu'on peut réessayer
-        if (e is DioException && 
-            e.error is FormatException && 
+        if (e is DioException &&
+            e.error is FormatException &&
             attempts <= maxRetries) {
-          _logger.w('🔄 Retry $attempts/$maxRetries for $endpoint due to format error');
-          
+          _logger.w(
+            ' Retry $attempts/$maxRetries for $endpoint due to format error',
+          );
+
           // Attendre un peu avant de réessayer
           await Future.delayed(Duration(milliseconds: 500 * attempts));
           continue;
         }
-        
+
         // Si c'est la dernière tentative ou une autre erreur
         if (attempts > maxRetries) {
           _logger.e('GET Error after $maxRetries retries: $e');
@@ -341,7 +388,7 @@ class ApiService {
         rethrow;
       }
     }
-    
+
     throw Exception('Max retries exceeded');
   }
 
@@ -385,12 +432,18 @@ class ApiService {
     }
 
     // Si c'est une réponse HTML (souvent erreur reverse proxy)
-    if (responseData.startsWith('<!DOCTYPE html') || responseData.startsWith('<html')) {
-      throw FormatException('Response is HTML, not JSON: ${responseData.substring(0, responseData.length > 80 ? 80 : responseData.length)}');
+    if (responseData.startsWith('<!DOCTYPE html') ||
+        responseData.startsWith('<html')) {
+      throw FormatException(
+        'Response is HTML, not JSON: ${responseData.substring(0, responseData.length > 80 ? 80 : responseData.length)}',
+      );
     }
 
     if (!responseData.startsWith('{') && !responseData.startsWith('[')) {
-      final preview = responseData.substring(0, responseData.length > 80 ? 80 : responseData.length);
+      final preview = responseData.substring(
+        0,
+        responseData.length > 80 ? 80 : responseData.length,
+      );
       throw FormatException('Response is not valid JSON: $preview');
     }
 
@@ -414,11 +467,23 @@ class ApiService {
     if (data != null && _canBatchRequest(endpoint)) {
       return _networkOptimizer.batchRequest(
         'POST:$endpoint',
-        () => _executePostWithRetry<T>(endpoint, data, queryParameters, fromJson, maxRetries),
+        () => _executePostWithRetry<T>(
+          endpoint,
+          data,
+          queryParameters,
+          fromJson,
+          maxRetries,
+        ),
       );
     }
-    
-    return _executePostWithRetry<T>(endpoint, data, queryParameters, fromJson, maxRetries);
+
+    return _executePostWithRetry<T>(
+      endpoint,
+      data,
+      queryParameters,
+      fromJson,
+      maxRetries,
+    );
   }
 
   Future<T> _executePostWithRetry<T>(
@@ -429,7 +494,7 @@ class ApiService {
     int maxRetries,
   ) async {
     int attempts = 0;
-    
+
     while (attempts <= maxRetries) {
       try {
         final response = await _dio.post(
@@ -441,27 +506,28 @@ class ApiService {
 
         // Valider et parser la réponse
         final validatedData = _validateAndParseResponse(response);
-        
+
         if (fromJson != null) {
           return fromJson(validatedData);
         }
 
         return validatedData as T;
-        
       } catch (e) {
         attempts++;
-        
+
         // Si c'est une erreur de formatage et qu'on peut réessayer
-        if (e is DioException && 
-            e.error is FormatException && 
+        if (e is DioException &&
+            e.error is FormatException &&
             attempts <= maxRetries) {
-          _logger.w('🔄 POST Retry $attempts/$maxRetries for $endpoint due to format error');
-          
+          _logger.w(
+            ' POST Retry $attempts/$maxRetries for $endpoint due to format error',
+          );
+
           // Attendre un peu avant de réessayer
           await Future.delayed(Duration(milliseconds: 500 * attempts));
           continue;
         }
-        
+
         // Si c'est la dernière tentative ou une autre erreur
         if (attempts > maxRetries) {
           _logger.e('POST Error after $maxRetries retries: $e');
@@ -471,7 +537,7 @@ class ApiService {
         rethrow;
       }
     }
-    
+
     throw Exception('Max POST retries exceeded');
   }
 
